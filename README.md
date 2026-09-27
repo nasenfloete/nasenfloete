@@ -3,21 +3,32 @@
 Eine kleine Web-App (PWA) für Kinder: Das Kind hört ein Wort und entscheidet,
 ob es **richtig** 👍 oder **falsch** 👎 ausgesprochen wurde.
 
+Gedacht zum gezielten Üben von Lauten, die ein Kind verwechselt – z. B.
+**Ü ↔ I** („Tür“ / „Tir“) oder **Sch ↔ S** („Fisch“ / „Fiss“). Es ist immer
+dasselbe Wort (mit Bild), nur die Aussprache unterscheidet sich.
+
 Die Wörter nehmen die Eltern direkt in der App auf – einmal richtig
-(„Schokolade“) und ein- oder mehrmals falsch („Sokolade“, „Schokonade“).
+(„Schokolade“) und ein- oder mehrmals falsch („Sokolade“).
 
 ## So funktioniert's
 
 1. **Elternbereich öffnen:** unten rechts ⚙️ **1,5 Sekunden gedrückt halten**
    (damit das Kind nicht versehentlich hineinkommt).
-2. **Wort anlegen** (optional mit Emoji als Bild), dann gleich die richtige und
-   danach die falsche Aussprache aufnehmen. Statt aufzunehmen kann man auch
-   eine Audiodatei wählen.
+2. **Wort anlegen** – selbst oder per Tipp auf einen **Vorschlag** (fertige
+   Listen für Ü und Sch mit Bild und falscher Variante). Pro Wort gibt es
+   einen **Laut** (z. B. „ü“, „sch“ – frei wählbar) und optional, wie es falsch
+   klingt. Danach gleich die richtige und die falsche Aussprache aufnehmen;
+   die App zeigt dabei an, was man sagen soll („Sag absichtlich „Tir““).
+   Statt aufzunehmen kann man auch eine Audiodatei wählen.
 3. Optional: eigene **Lob-** („Super gemacht!“) und **Trost-Sprüche**
    („Hör nochmal genau hin!“) aufnehmen.
 4. **Spielen:** Das Wort wird vorgespielt, danach werden die Antwort-Knöpfe
    freigeschaltet. Tippen auf das Bild spielt das Wort nochmal ab.
    Bei einem Fehler wird zum Lernen die richtige Aussprache vorgespielt.
+   Gibt es mehrere Laute, kann man auf dem Startbildschirm wählen, welcher
+   geübt wird (Alle / Ü / Sch).
+5. **Fortschritt:** Im Elternbereich steht pro Laut, wie oft die falsche und
+   die richtige Aussprache erkannt wurde, und welche Wörter noch schwerfallen.
 
 Alle Aufnahmen bleiben **nur auf dem Gerät** (IndexedDB) – nichts wird
 hochgeladen. Über *Sicherung → Exportieren/Importieren* lassen sie sich als

@@ -1,11 +1,13 @@
 // Kleine IndexedDB-Hülle für Wörter und Audio-Aufnahmen.
-// words: { id, text, emoji, created }
+// words: { id, text, emoji, sound, wrongHint, created }
+//   sound = geübter Laut (z. B. "ü", "sch"), wrongHint = wie man es falsch sagt (z. B. "Tir")
 // clips: { id, owner, kind, data (ArrayBuffer), type, created }
 //   owner = Wort-ID oder "feedback"; kind = "correct" | "wrong" | "praise" | "comfort"
+// answers: { id (auto), wordId, sound, isCorrect, ok, ts } – Antworten des Kindes für die Statistik
 // (ArrayBuffer statt Blob, weil ältere iOS-Versionen Blobs in IndexedDB nicht zuverlässig speichern.)
 const DB = (() => {
   const NAME = 'hoer-genau';
-  const VERSION = 1;
+  const VERSION = 2;
   let dbPromise;
 
   function open() {
@@ -20,6 +22,9 @@ const DB = (() => {
         if (!db.objectStoreNames.contains('clips')) {
           const clips = db.createObjectStore('clips', { keyPath: 'id' });
           clips.createIndex('owner', 'owner');
+        }
+        if (!db.objectStoreNames.contains('answers')) {
+          db.createObjectStore('answers', { keyPath: 'id', autoIncrement: true });
         }
       };
       req.onsuccess = () => resolve(req.result);
@@ -72,6 +77,15 @@ const DB = (() => {
     },
     async deleteClip(id) {
       return wrap((await store('clips', 'readwrite')).delete(id));
+    },
+    async addAnswer(answer) {
+      return wrap((await store('answers', 'readwrite')).add(answer));
+    },
+    async allAnswers() {
+      return wrap((await store('answers')).getAll());
+    },
+    async clearAnswers() {
+      return wrap((await store('answers', 'readwrite')).clear());
     },
     async clear() {
       const db = await open();

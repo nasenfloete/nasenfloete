@@ -20,6 +20,7 @@
   <section id="screen-home" class="screen active">
     <h1 class="title">Hör genau!</h1>
     <div class="mascot" aria-hidden="true">👂</div>
+    <div id="sound-picker" class="sound-picker" hidden></div>
     <button id="btn-play" class="big-btn play">▶ Spielen</button>
     <p id="home-hint" class="hint"></p>
     <button id="btn-parents" class="parents-btn" aria-label="Elternbereich (gedrückt halten)">
@@ -76,14 +77,33 @@
       <label>Wort
         <input id="new-word" type="text" placeholder="z. B. Schokolade" autocomplete="off">
       </label>
-      <label>Bild (Emoji, optional)
-        <input id="new-emoji" type="text" placeholder="🍫" maxlength="8" autocomplete="off">
+      <div class="row">
+        <label>Bild (Emoji)
+          <input id="new-emoji" type="text" placeholder="🍫" maxlength="8" autocomplete="off">
+        </label>
+        <label>Laut
+          <input id="new-sound" type="text" placeholder="sch" list="sound-list" autocomplete="off">
+        </label>
+      </div>
+      <label>So klingt es falsch (optional)
+        <input id="new-hint" type="text" placeholder="z. B. Sokolade" autocomplete="off">
       </label>
       <button id="btn-add-word" class="btn primary">+ Wort anlegen</button>
       <p class="tiny">Danach beim Wort die <b>richtige</b> und eine oder mehrere <b>falsche</b> Aussprachen aufnehmen.</p>
     </div>
 
+    <div class="card">
+      <h3>Vorschläge</h3>
+      <p class="tiny">Antippen legt das Wort an und startet direkt die Aufnahme. In Klammern steht, wie man es absichtlich falsch sagt.</p>
+      <div id="suggestions"></div>
+    </div>
+
+
     <div id="word-list"></div>
+    <div class="card">
+      <h3>Fortschritt</h3>
+      <div id="stats"></div>
+    </div>
 
     <div class="card">
       <h3>Lob &amp; Trost (optional)</h3>
@@ -131,6 +151,28 @@
       <button id="rec-save" class="btn primary" disabled>Speichern</button>
     </div>
   </dialog>
+
+  <!-- Wort bearbeiten -->
+  <dialog id="edit-dialog" class="rec-dialog">
+    <h3>Wort bearbeiten</h3>
+    <form id="edit-form" method="dialog" class="edit-form">
+      <label>Wort <input id="edit-word" type="text" autocomplete="off" required></label>
+      <div class="row">
+        <label>Bild (Emoji) <input id="edit-emoji" type="text" maxlength="8" autocomplete="off"></label>
+        <label>Laut <input id="edit-sound" type="text" list="sound-list" autocomplete="off"></label>
+      </div>
+      <label>So klingt es falsch <input id="edit-hint" type="text" autocomplete="off"></label>
+      <div class="row">
+        <button type="button" id="edit-cancel" class="btn">Abbrechen</button>
+        <button type="submit" class="btn primary">Speichern</button>
+      </div>
+    </form>
+  </dialog>
+
+  <datalist id="sound-list">
+    <option value="ü"></option>
+    <option value="sch"></option>
+  </datalist>
 
   <div id="toast" class="toast" hidden></div>
   <div id="confetti" class="confetti" aria-hidden="true"></div>
