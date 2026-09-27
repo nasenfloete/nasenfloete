@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Hör genau!</title>
+  <meta name="description" content="Hörspiel für Kinder: Wurde das Wort richtig oder falsch ausgesprochen?">
+  <meta name="theme-color" content="#ffb938">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Hör genau!">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Startbildschirm -->
+  <section id="screen-home" class="screen active">
+    <h1 class="title">Hör genau!</h1>
+    <div class="mascot" aria-hidden="true">👂</div>
+    <button id="btn-play" class="big-btn play">▶ Spielen</button>
+    <p id="home-hint" class="hint"></p>
+    <button id="btn-parents" class="parents-btn" aria-label="Elternbereich (gedrückt halten)">
+      <span class="ring"></span>⚙️
+    </button>
+    <p class="tiny">Eltern: ⚙️ gedrückt halten</p>
+  </section>
+
+  <!-- Spiel -->
+  <section id="screen-game" class="screen">
+    <header class="game-top">
+      <button id="btn-quit" class="icon-btn" aria-label="Beenden">✕</button>
+      <div id="progress" class="progress"></div>
+    </header>
+    <div class="stage">
+      <button id="btn-replay" class="picture" aria-label="Nochmal anhören">
+        <span id="q-emoji" class="q-emoji">🔊</span>
+        <span id="q-word" class="q-word"></span>
+        <span class="replay-hint">🔁 nochmal hören</span>
+      </button>
+    </div>
+    <div class="answers">
+      <button id="btn-right" class="answer right" aria-label="Richtig">
+        <span class="a-icon">👍</span><span class="a-label">Richtig</span>
+      </button>
+      <button id="btn-wrong" class="answer wrong" aria-label="Falsch">
+        <span class="a-icon">👎</span><span class="a-label">Falsch</span>
+      </button>
+    </div>
+    <div id="feedback" class="feedback" hidden>
+      <div id="feedback-icon" class="feedback-icon"></div>
+      <div id="feedback-text" class="feedback-text"></div>
+    </div>
+  </section>
+
+  <!-- Ergebnis -->
+  <section id="screen-result" class="screen">
+    <h1 class="title">Geschafft!</h1>
+    <div id="result-stars" class="result-stars"></div>
+    <p id="result-text" class="result-text"></p>
+    <button id="btn-again" class="big-btn play">🔁 Nochmal</button>
+    <button id="btn-home" class="big-btn secondary">🏠 Start</button>
+  </section>
+
+  <!-- Elternbereich -->
+  <section id="screen-parents" class="screen parents">
+    <header class="p-top">
+      <button id="btn-parents-back" class="icon-btn" aria-label="Zurück">←</button>
+      <h2>Elternbereich</h2>
+    </header>
+
+    <div class="card">
+      <h3>Neues Wort</h3>
+      <label>Wort
+        <input id="new-word" type="text" placeholder="z. B. Schokolade" autocomplete="off">
+      </label>
+      <label>Bild (Emoji, optional)
+        <input id="new-emoji" type="text" placeholder="🍫" maxlength="8" autocomplete="off">
+      </label>
+      <button id="btn-add-word" class="btn primary">+ Wort anlegen</button>
+      <p class="tiny">Danach beim Wort die <b>richtige</b> und eine oder mehrere <b>falsche</b> Aussprachen aufnehmen.</p>
+    </div>
+
+    <div id="word-list"></div>
+
+    <div class="card">
+      <h3>Lob &amp; Trost (optional)</h3>
+      <p class="tiny">Eigene Sprüche, die nach einer Antwort abgespielt werden – z. B. „Super gemacht!“ oder „Hör nochmal genau hin!“. Mehrere Aufnahmen werden abwechselnd gespielt.</p>
+      <div id="feedback-sounds"></div>
+    </div>
+
+    <div class="card">
+      <h3>Einstellungen</h3>
+      <label>Fragen pro Runde
+        <select id="set-rounds">
+          <option value="5">5</option>
+          <option value="10">10</option>
+          <option value="15">15</option>
+          <option value="20">20</option>
+        </select>
+      </label>
+      <label class="check"><input id="set-show-word" type="checkbox"> Wort als Text anzeigen</label>
+      <label class="check"><input id="set-chimes" type="checkbox"> Töne bei richtig/falsch</label>
+    </div>
+
+    <div class="card">
+      <h3>Sicherung</h3>
+      <p class="tiny">Alle Wörter und Aufnahmen als Datei sichern oder auf ein anderes Gerät übertragen.</p>
+      <div class="row">
+        <button id="btn-export" class="btn">⬇ Exportieren</button>
+        <label class="btn file-btn">⬆ Importieren<input id="import-file" type="file" accept=".json,application/json" hidden></label>
+      </div>
+      <p id="storage-info" class="tiny"></p>
+    </div>
+  </section>
+
+  <!-- Aufnahme-Dialog -->
+  <dialog id="rec-dialog" class="rec-dialog">
+    <h3 id="rec-title">Aufnahme</h3>
+    <p id="rec-sub" class="tiny"></p>
+    <button id="rec-btn" class="rec-btn" aria-label="Aufnahme starten">🎙️</button>
+    <p id="rec-status" class="rec-status">Tippen zum Aufnehmen</p>
+    <div class="row">
+      <button id="rec-preview" class="btn" disabled>▶ Anhören</button>
+      <label class="btn file-btn">📁 Datei<input id="rec-file" type="file" accept="audio/*" hidden></label>
+    </div>
+    <div class="row">
+      <button id="rec-cancel" class="btn">Abbrechen</button>
+      <button id="rec-save" class="btn primary" disabled>Speichern</button>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" hidden></div>
+  <div id="confetti" class="confetti" aria-hidden="true"></div>
+
+  <script src="db.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
