@@ -3,32 +3,52 @@
 Eine kleine Web-App (PWA) für Kinder: Das Kind hört ein Wort und entscheidet,
 ob es **richtig** 👍 oder **falsch** 👎 ausgesprochen wurde.
 
-Gedacht zum gezielten Üben von Lauten, die ein Kind verwechselt – z. B.
-**Ü ↔ I** („Tür“ / „Tir“) oder **Sch ↔ S** („Fisch“ / „Fiss“). Es ist immer
-dasselbe Wort (mit Bild), nur die Aussprache unterscheidet sich.
+Gedacht zum gezielten Üben von Lauten, die ein Kind verwechselt. Es ist
+immer dasselbe Wort (mit Bild), nur die Aussprache unterscheidet sich:
 
-Die Wörter nehmen die Eltern direkt in der App auf – einmal richtig
-(„Schokolade“) und ein- oder mehrmals falsch („Sokolade“).
+| Laut | wird zu | Beispiel |
+| --- | --- | --- |
+| Ü | I | Tür → „Tir“ |
+| Ä | E | Käse → „Kese“ (nur langes Ä – kurzes Ä klingt ohnehin wie E) |
+| Ö | E | Löwe → „Lewe“ |
+| Sch | S | Fisch → „Fiss“ |
+
+Die App ist für Kinder gemacht, die **noch nicht lesen** können: Alles läuft
+über Bilder, Töne und Sprache. Text wird im Spiel standardmäßig nicht angezeigt.
+
+## Schwierigkeitsstufen
+
+- ⭐ **Wörter** – „Tür“ / „Tir“
+- ⭐⭐ **Kurze Sätze** – „Mach die Tür zu.“ / „Mach die Tir zu.“
+- ⭐⭐⭐ **Lange Sätze** – zwei Wörter mit dem Laut, nur eins wird falsch gesagt:
+  „Der Schlüssel steckt in der Tür.“ / „Der Schlissel steckt in der Tür.“
+
+Für jeden Laut und jede Stufe gibt es fertige Listen (insgesamt über 100 Wörter
+und Sätze, siehe `content.js`). Eigene Wörter und Sätze kann man zusätzlich
+anlegen.
 
 ## So funktioniert's
 
 1. **Elternbereich öffnen:** unten rechts ⚙️ **1,5 Sekunden gedrückt halten**
    (damit das Kind nicht versehentlich hineinkommt).
-2. **Wort anlegen** – selbst oder per Tipp auf einen **Vorschlag** (fertige
-   Listen für Ü und Sch mit Bild und falscher Variante). Pro Wort gibt es
-   einen **Laut** (z. B. „ü“, „sch“ – frei wählbar) und optional, wie es falsch
-   klingt. Danach gleich die richtige und die falsche Aussprache aufnehmen;
-   die App zeigt dabei an, was man sagen soll („Sag absichtlich „Tir““).
-   Statt aufzunehmen kann man auch eine Audiodatei wählen.
-3. Optional: eigene **Lob-** („Super gemacht!“) und **Trost-Sprüche**
-   („Hör nochmal genau hin!“) aufnehmen.
-4. **Spielen:** Das Wort wird vorgespielt, danach werden die Antwort-Knöpfe
-   freigeschaltet. Tippen auf das Bild spielt das Wort nochmal ab.
-   Bei einem Fehler wird zum Lernen die richtige Aussprache vorgespielt.
-   Gibt es mehrere Laute, kann man auf dem Startbildschirm wählen, welcher
-   geübt wird (Alle / Ü / Sch).
+2. **Aufnehmen:** Einen Eintrag antippen oder bei einer Stufe
+   **„Alle aufnehmen“** wählen – dann geht die App der Reihe nach durch die
+   Liste: erst richtig, dann falsch sprechen; was man sagen soll, steht jeweils
+   dabei. Einträge lassen sich überspringen. Statt aufzunehmen kann man auch
+   eine Audiodatei wählen.
+3. **Spielen:** Auf dem Startbildschirm Laut (🚪 Ü, 🐻 Ä, 🦁 Ö, 🐟 Sch) und
+   Stufe (⭐ / ⭐⭐ / ⭐⭐⭐) wählen. Das Wort wird vorgespielt, danach sind
+   👍 / 👎 freigeschaltet. Tippen auf das Bild spielt es nochmal ab.
+   Bei einem Fehler wird die richtige Aussprache vorgespielt.
+4. **Lob & Trost:** Eine Vorlesestimme lobt („Super!“) und tröstet („Hör
+   nochmal genau hin.“). Schöner ist es mit eigenen aufgenommenen Sprüchen –
+   dann werden diese statt der Stimme verwendet.
 5. **Fortschritt:** Im Elternbereich steht pro Laut, wie oft die falsche und
-   die richtige Aussprache erkannt wurde, und welche Wörter noch schwerfallen.
+   die richtige Aussprache erkannt wurde, der Erfolg pro Stufe und welche
+   Wörter noch schwerfallen.
+
+**Tipp:** Richtige und falsche Version möglichst gleich sprechen (Betonung,
+Lautstärke, Tempo) – dann kann sich das Kind nur am Laut orientieren.
 
 Alle Aufnahmen bleiben **nur auf dem Gerät** (IndexedDB) – nichts wird
 hochgeladen. Über *Sicherung → Exportieren/Importieren* lassen sie sich als
@@ -65,6 +85,7 @@ installierte Apps das Update übernehmen.
 | Datei | Inhalt |
 | --- | --- |
 | `index.html` | Alle Bildschirme (Start, Spiel, Ergebnis, Eltern, Aufnahme-Dialog) |
+| `content.js` | Fertige Wörter und Sätze pro Laut und Stufe |
 | `app.js` | Spiellogik, Aufnahme, Elternbereich, Export/Import |
 | `db.js` | IndexedDB-Speicher für Wörter und Aufnahmen |
 | `style.css` | Kindgerechtes Design |

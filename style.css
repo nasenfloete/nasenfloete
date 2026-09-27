@@ -77,7 +77,7 @@ button:disabled { cursor: default; }
 
 .hint { text-align: center; color: var(--muted); max-width: 320px; margin: 0; font-size: 1rem; }
 .tiny { font-size: 0.85rem; color: var(--muted); margin: 6px 0 0; }
-#screen-home .tiny { position: absolute; bottom: calc(10px + var(--safe-bottom)); opacity: 0.6; }
+#screen-home .home-foot { position: absolute; bottom: calc(10px + var(--safe-bottom)); opacity: 0.6; }
 
 .parents-btn {
   position: absolute;
@@ -368,6 +368,8 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
   50% { box-shadow: 0 0 0 18px rgba(255, 93, 93, 0); }
 }
 .rec-status { min-height: 1.4em; font-weight: 600; }
+.skip-btn { width: 100%; margin-top: 10px; }
+.skip-btn[hidden] { display: none; }
 
 .toast {
   position: fixed;
@@ -388,3 +390,39 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
 }
+
+/* ---------- Stufen & Gruppen ---------- */
+.level-picker .level-chip { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 14px; }
+.level-chip .stars { font-size: 1.3rem; letter-spacing: -0.1em; }
+.level-chip .tiny { margin: 0; font-size: 0.75rem; color: inherit; opacity: 0.8; }
+.level-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.level-head .tiny { margin: 0; }
+.clips.sentences .chip { border-radius: 14px; text-align: left; }
+.suggest-group { border-top: 2px solid var(--line); padding-top: 4px; }
+.suggest-group:first-child { border-top: 0; }
+.suggest-group summary { font-size: 1.1rem; }
+.suggest-group[open] { padding-bottom: 8px; }
+.suggest-group > .variant { margin-top: 12px; }
+
+.own-word { display: block; }
+.own-word summary { cursor: pointer; list-style: none; }
+.own-word summary::-webkit-details-marker { display: none; }
+.own-word summary h3::before { content: "+ "; color: var(--accent); }
+.own-word[open] summary h3::before { content: "– "; }
+.own-word > label, .own-word > .row, .own-word > .btn { margin-top: 10px; }
+
+.list-title { margin: 6px 4px 0; font-size: 1.1rem; }
+.word-group[open] { margin-bottom: 4px; }
+.word-group > summary {
+  cursor: pointer;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  list-style: none;
+}
+.word-group > summary::-webkit-details-marker { display: none; }
+.word-group > summary::after { content: "▸"; color: var(--muted); }
+.word-group[open] > summary::after { content: "▾"; }
+.word-group > summary .tiny { margin: 0 0 0 auto; padding-right: 8px; }
+.word-group > .card.word { margin: 10px 0 0 10px; }

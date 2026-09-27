@@ -21,12 +21,13 @@
     <h1 class="title">Hör genau!</h1>
     <div class="mascot" aria-hidden="true">👂</div>
     <div id="sound-picker" class="sound-picker" hidden></div>
+    <div id="level-picker" class="sound-picker level-picker" hidden></div>
     <button id="btn-play" class="big-btn play">▶ Spielen</button>
     <p id="home-hint" class="hint"></p>
     <button id="btn-parents" class="parents-btn" aria-label="Elternbereich (gedrückt halten)">
       <span class="ring"></span>⚙️
     </button>
-    <p class="tiny">Eltern: ⚙️ gedrückt halten</p>
+    <p class="tiny home-foot">Eltern: ⚙️ gedrückt halten</p>
   </section>
 
   <!-- Spiel -->
@@ -73,9 +74,18 @@
     </header>
 
     <div class="card">
-      <h3>Neues Wort</h3>
-      <label>Wort
+      <h3>Wörter &amp; Sätze aufnehmen</h3>
+      <p class="tiny">Fertige Listen für die typischen Verwechslungen. Antippen startet die Aufnahme: erst richtig, dann falsch (steht jeweils dabei, was du sagen sollst). Mit <b>„Alle aufnehmen“</b> geht es der Reihe nach durch die ganze Liste.</p>
+      <div id="suggestions"></div>
+    </div>
+
+    <details class="card own-word">
+      <summary><h3>Eigenes Wort oder eigenen Satz anlegen</h3></summary>
+      <label>Wort oder Satz (richtig)
         <input id="new-word" type="text" placeholder="z. B. Schokolade" autocomplete="off">
+      </label>
+      <label>So klingt es falsch (optional)
+        <input id="new-hint" type="text" placeholder="z. B. Sokolade" autocomplete="off">
       </label>
       <div class="row">
         <label>Bild (Emoji)
@@ -84,20 +94,12 @@
         <label>Laut
           <input id="new-sound" type="text" placeholder="sch" list="sound-list" autocomplete="off">
         </label>
+        <label>Stufe
+          <select id="new-level" class="level-select"></select>
+        </label>
       </div>
-      <label>So klingt es falsch (optional)
-        <input id="new-hint" type="text" placeholder="z. B. Sokolade" autocomplete="off">
-      </label>
-      <button id="btn-add-word" class="btn primary">+ Wort anlegen</button>
-      <p class="tiny">Danach beim Wort die <b>richtige</b> und eine oder mehrere <b>falsche</b> Aussprachen aufnehmen.</p>
-    </div>
-
-    <div class="card">
-      <h3>Vorschläge</h3>
-      <p class="tiny">Antippen legt das Wort an und startet direkt die Aufnahme. In Klammern steht, wie man es absichtlich falsch sagt.</p>
-      <div id="suggestions"></div>
-    </div>
-
+      <button id="btn-add-word" class="btn primary">+ Anlegen &amp; aufnehmen</button>
+    </details>
 
     <div id="word-list"></div>
     <div class="card">
@@ -121,7 +123,8 @@
           <option value="20">20</option>
         </select>
       </label>
-      <label class="check"><input id="set-show-word" type="checkbox"> Wort als Text anzeigen</label>
+      <label class="check"><input id="set-voice" type="checkbox"> Vorlesestimme (lobt und tröstet, solange keine eigenen Sprüche aufgenommen sind)</label>
+      <label class="check"><input id="set-show-word" type="checkbox"> Wort als Text anzeigen (für Kinder, die schon lesen)</label>
       <label class="check"><input id="set-chimes" type="checkbox"> Töne bei richtig/falsch</label>
     </div>
 
@@ -138,6 +141,7 @@
 
   <!-- Aufnahme-Dialog -->
   <dialog id="rec-dialog" class="rec-dialog">
+    <p id="rec-queue" class="tiny" hidden></p>
     <h3 id="rec-title">Aufnahme</h3>
     <p id="rec-sub" class="tiny"></p>
     <button id="rec-btn" class="rec-btn" aria-label="Aufnahme starten">🎙️</button>
@@ -150,16 +154,18 @@
       <button id="rec-cancel" class="btn">Abbrechen</button>
       <button id="rec-save" class="btn primary" disabled>Speichern</button>
     </div>
+    <button id="rec-skip" class="btn skip-btn" hidden>Überspringen ⏭</button>
   </dialog>
 
   <!-- Wort bearbeiten -->
   <dialog id="edit-dialog" class="rec-dialog">
-    <h3>Wort bearbeiten</h3>
+    <h3>Bearbeiten</h3>
     <form id="edit-form" method="dialog" class="edit-form">
-      <label>Wort <input id="edit-word" type="text" autocomplete="off" required></label>
+      <label>Wort oder Satz <input id="edit-word" type="text" autocomplete="off" required></label>
       <div class="row">
         <label>Bild (Emoji) <input id="edit-emoji" type="text" maxlength="8" autocomplete="off"></label>
         <label>Laut <input id="edit-sound" type="text" list="sound-list" autocomplete="off"></label>
+        <label>Stufe <select id="edit-level" class="level-select"></select></label>
       </div>
       <label>So klingt es falsch <input id="edit-hint" type="text" autocomplete="off"></label>
       <div class="row">
@@ -171,12 +177,15 @@
 
   <datalist id="sound-list">
     <option value="ü"></option>
+    <option value="ä"></option>
+    <option value="ö"></option>
     <option value="sch"></option>
   </datalist>
 
   <div id="toast" class="toast" hidden></div>
   <div id="confetti" class="confetti" aria-hidden="true"></div>
 
+  <script src="content.js"></script>
   <script src="db.js"></script>
   <script src="app.js"></script>
 </body>

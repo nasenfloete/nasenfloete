@@ -22,43 +22,19 @@ function toast(msg, ms = 2200) {
   toast.t = setTimeout(() => (el.hidden = true), ms);
 }
 
-// ---------- Laute & Wortvorschläge ----------
-// Falsch = wie ein Kind den Laut verwechselt (Ü → I, Sch → S).
-const SUGGESTIONS = {
-  ü: [
-    ['Tür', '🚪', 'Tir'],
-    ['Mütze', '🧢', 'Mitze'],
-    ['Küche', '🍳', 'Kiche'],
-    ['Brücke', '🌉', 'Bricke'],
-    ['Schlüssel', '🔑', 'Schlissel'],
-    ['Würfel', '🎲', 'Wirfel'],
-    ['Füße', '🦶', 'Fiße'],
-    ['Gemüse', '🥦', 'Gemise'],
-    ['Kürbis', '🎃', 'Kirbis'],
-    ['Glück', '🍀', 'Glick'],
-    ['Tüte', '🛍️', 'Tite'],
-    ['Zahnbürste', '🪥', 'Zahnbirste'],
-  ],
-  sch: [
-    ['Schokolade', '🍫', 'Sokolade'],
-    ['Schuh', '👟', 'Suh'],
-    ['Schaf', '🐑', 'Saf'],
-    ['Schule', '🏫', 'Sule'],
-    ['Schere', '✂️', 'Sere'],
-    ['Schnecke', '🐌', 'Snecke'],
-    ['Schwein', '🐷', 'Swein'],
-    ['Schiff', '🚢', 'Siff'],
-    ['Schlange', '🐍', 'Slange'],
-    ['Fisch', '🐟', 'Fiss'],
-    ['Flasche', '🍾', 'Flasse'],
-    ['Dusche', '🚿', 'Duse'],
-  ],
-};
+// ---------- Laute & Stufen (Inhalte in content.js) ----------
 const normSound = (s) => (s || '').trim().toLowerCase();
-const soundLabel = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Ohne Laut');
+const soundLabel = (s) => (SOUNDS[s] ? SOUNDS[s].label : s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Ohne Laut');
+const levelOf = (w) => Number(w.level) || 1;
+// Reihenfolge: bekannte Laute wie in content.js, danach eigene, "ohne Laut" zuletzt.
+const soundOrder = (s) => {
+  const i = Object.keys(SOUNDS).indexOf(s);
+  return i >= 0 ? String(i).padStart(3, '0') : s ? 'x' + s : '\uffff';
+};
+const bySoundOrder = (a, b) => soundOrder(a).localeCompare(soundOrder(b));
 
 // ---------- Einstellungen (nur auf diesem Gerät) ----------
-const DEFAULT_SETTINGS = { rounds: 10, showWord: true, chimes: true, focus: '' };
+const DEFAULT_SETTINGS = { rounds: 5, showWord: false, chimes: true, voice: true, focus: '', level: 1 };
 const settings = (() => {
   try {
     return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem('hg-settings') || '{}') };
@@ -95,10 +71,18 @@ function unlockAudio() {
     if (Ctx) audioCtx = new Ctx();
   }
   if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  // iOS gibt die Sprachausgabe erst nach einer Äußerung innerhalb eines Tipps frei.
+  if (window.speechSynthesis && !unlockAudio.spoke) {
+    unlockAudio.spoke = true;
+    const u = new SpeechSynthesisUtterance(' ');
+    u.volume = 0;
+    speechSynthesis.speak(u);
+  }
 }
 
 function stopClip() {
   player.pause();
+  if (window.speechSynthesis) speechSynthesis.cancel();
   player.onended = player.onerror = null;
 }
 
@@ -145,6 +129,47 @@ function chime(good) {
   return wait(notes.length * step * 1000 + 250);
 }
 
+// Vorlesestimme des Geräts – für ein Kind, das noch nicht lesen kann.
+let germanVoice = null;
+function pickVoice() {
+  if (!window.speechSynthesis) return;
+  const voices = speechSynthesis.getVoices().filter((v) => /^de(-|_|$)/i.test(v.lang));
+  germanVoice = voices.find((v) => /de-DE/i.test(v.lang) && v.localService) || voices[0] || null;
+}
+if (window.speechSynthesis) {
+  pickVoice();
+  speechSynthesis.addEventListener?.('voiceschanged', pickVoice);
+}
+
+function speak(text) {
+  if (!settings.voice || !window.speechSynthesis || !text) return Promise.resolve();
+  return new Promise((resolve) => {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'de-DE';
+    if (germanVoice) u.voice = germanVoice;
+    u.rate = 0.95;
+    u.pitch = 1.15;
+    const guard = setTimeout(resolve, 5000);
+    u.onend = u.onerror = () => {
+      clearTimeout(guard);
+      resolve();
+    };
+    speechSynthesis.speak(u);
+  });
+}
+
+const PRAISE = ['Super!', 'Toll gehört!', 'Richtig gut!', 'Prima!', 'Klasse!'];
+const COMFORT = ['Hör nochmal genau hin.', 'Nicht schlimm. Hör mal.', 'Fast! Hör nochmal.'];
+const randomOf = (list) => list[Math.floor(Math.random() * list.length)];
+
+// Eigene Aufnahme, sonst Vorlesestimme.
+async function sayFeedback(kind) {
+  const clip = pickFeedback(kind);
+  if (clip) return playClip(clip);
+  return speak(randomOf(kind === 'praise' ? PRAISE : COMFORT));
+}
+
 // Abwechselnde Wahl aus Lob/Trost-Aufnahmen, damit nicht immer dieselbe kommt.
 const lastPick = {};
 function pickFeedback(kind) {
@@ -164,35 +189,47 @@ function show(name) {
   window.scrollTo(0, 0);
 }
 
-// focus = Laut, auf den die Runde beschränkt wird ('' = alle).
-function playableQuestions(focus = '') {
+// Filter: sound = Laut ('' = alle), level = Stufe (0 = alle).
+function playableQuestions(sound = '', level = 0) {
   const qs = [];
   for (const w of words) {
-    if (focus && normSound(w.sound) !== focus) continue;
+    if (sound && normSound(w.sound) !== sound) continue;
+    if (level && levelOf(w) !== level) continue;
     for (const c of clipsOf(w.id, 'correct')) qs.push({ word: w, clip: c, isCorrect: true });
     for (const c of clipsOf(w.id, 'wrong')) qs.push({ word: w, clip: c, isCorrect: false });
   }
   return qs;
 }
 
-function playableSounds() {
-  return [...new Set(playableQuestions().map((q) => normSound(q.word.sound)).filter(Boolean))].sort();
-}
-
 function updateHome() {
-  const n = playableQuestions().length;
-  $('#home-hint').textContent = n
+  const all = playableQuestions();
+  $('#home-hint').textContent = all.length
     ? ''
     : 'Noch keine Aufnahmen. Eltern: ⚙️ unten gedrückt halten und Wörter aufnehmen.';
-  $('#btn-play').classList.toggle('disabled', !n);
+  $('#btn-play').classList.toggle('disabled', !all.length);
 
-  // Laut-Auswahl nur zeigen, wenn es mindestens zwei Laute gibt.
-  const sounds = playableSounds();
+  // Laut-Auswahl (mit Bild, weil das Kind nicht lesen kann) – nur bei mindestens zwei Lauten.
+  const sounds = [...new Set(all.map((q) => normSound(q.word.sound)).filter(Boolean))].sort(bySoundOrder);
   if (settings.focus && !sounds.includes(settings.focus)) settings.focus = '';
-  const picker = $('#sound-picker');
-  picker.hidden = sounds.length < 2;
-  picker.innerHTML = ['', ...sounds]
-    .map((s) => `<button class="sound-chip ${s === settings.focus ? 'active' : ''}" data-sound="${escapeHtml(s)}">${s ? escapeHtml(soundLabel(s)) : 'Alle'}</button>`)
+  const sp = $('#sound-picker');
+  sp.hidden = sounds.length < 2;
+  sp.innerHTML = ['', ...sounds]
+    .map((s) => {
+      const icon = s ? (SOUNDS[s] ? SOUNDS[s].emoji + ' ' : '') + escapeHtml(soundLabel(s)) : 'Alle';
+      return `<button class="sound-chip ${s === settings.focus ? 'active' : ''}" data-sound="${escapeHtml(s)}">${icon}</button>`;
+    })
+    .join('');
+
+  // Stufen-Auswahl: nur Stufen, die es für den gewählten Laut gibt.
+  const levels = [...new Set(playableQuestions(settings.focus).map((q) => levelOf(q.word)))].sort();
+  if (!levels.includes(settings.level)) settings.level = levels[0] || 1;
+  const lp = $('#level-picker');
+  lp.hidden = levels.length < 2;
+  lp.innerHTML = levels
+    .map(
+      (l) => `<button class="sound-chip level-chip ${l === settings.level ? 'active' : ''}" data-level="${l}" aria-label="${LEVELS[l].label}">
+        <span class="stars">${LEVELS[l].stars}</span><span class="tiny">${LEVELS[l].label}</span></button>`
+    )
     .join('');
 }
 
@@ -200,7 +237,7 @@ function updateHome() {
 const game = { questions: [], index: 0, score: 0, results: [], busy: false };
 
 function buildRound(count) {
-  const pool = playableQuestions(settings.focus);
+  const pool = playableQuestions(settings.focus, settings.level);
   const right = shuffle(pool.filter((q) => q.isCorrect));
   const wrong = shuffle(pool.filter((q) => !q.isCorrect));
   const out = [];
@@ -222,7 +259,7 @@ function buildRound(count) {
 
 function startGame() {
   unlockAudio();
-  if (!playableQuestions(settings.focus).length) {
+  if (!playableQuestions(settings.focus, settings.level).length) {
     toast('Erst Wörter aufnehmen (⚙️ gedrückt halten)');
     return;
   }
@@ -286,7 +323,7 @@ async function answer(saidCorrect) {
   game.results[game.index] = ok;
   if (ok) game.score++;
   renderProgress();
-  DB.addAnswer({ wordId: q.word.id, sound: normSound(q.word.sound), isCorrect: q.isCorrect, ok, ts: Date.now() }).catch(() => {});
+  DB.addAnswer({ wordId: q.word.id, sound: normSound(q.word.sound), level: levelOf(q.word), isCorrect: q.isCorrect, ok, ts: Date.now() }).catch(() => {});
 
   const fb = $('#feedback');
   fb.className = 'feedback ' + (ok ? 'good' : 'bad');
@@ -299,20 +336,20 @@ async function answer(saidCorrect) {
   if (ok) {
     confetti();
     await chime(true);
-    const praise = pickFeedback('praise');
-    if (praise) await playClip(praise);
-    else await wait(700);
+    await sayFeedback('praise');
+    await wait(500);
   } else {
     $('#screen-game').classList.add('shake');
     setTimeout(() => $('#screen-game').classList.remove('shake'), 500);
     await chime(false);
-    const comfort = pickFeedback('comfort');
-    if (comfort) await playClip(comfort);
+    await sayFeedback('comfort');
     // Zum Lernen: die richtige Aussprache vorspielen.
     const correct = clipsOf(q.word.id, 'correct')[0];
     if (correct) {
+      $('#feedback-icon').textContent = '👂';
       $('#feedback-text').textContent = 'So klingt es richtig:';
-      await wait(400);
+      await speak('So klingt es richtig:');
+      await wait(300);
       await playClip(correct);
     }
     await wait(700);
@@ -341,6 +378,7 @@ function finishGame() {
     confetti(80);
     chime(true);
   }
+  speak(s === 0 ? 'Das üben wir nochmal!' : s === 1 ? 'Du hast einen Stern!' : `Du hast ${s} Sterne!` + (ratio >= 0.7 ? ' Super!' : ''));
 }
 
 function confetti(n = 40) {
@@ -374,50 +412,67 @@ function clipRow(clip, label) {
     </span>`;
 }
 
+// Merkt sich, welche <details> offen sind, damit Neuzeichnen sie nicht zuklappt.
+function openKeys(box) {
+  return new Set([...box.querySelectorAll('details[open]')].map((d) => d.dataset.key));
+}
+
+function wordCard(w) {
+  const good = clipsOf(w.id, 'correct');
+  const bad = clipsOf(w.id, 'wrong');
+  const warn = !good.length ? 'Richtige Aussprache fehlt' : !bad.length ? 'Falsche Aussprache fehlt' : '';
+  return `<div class="card word" data-word="${w.id}">
+    <div class="word-head">
+      <button class="word-title edit-word" data-word="${w.id}">
+        <span class="w-emoji">${escapeHtml(w.emoji || '🔊')}</span>
+        <span class="w-text">${escapeHtml(w.text)}${w.wrongHint ? `<small> ≠ ${escapeHtml(w.wrongHint)}</small>` : ''}</span>
+        <span class="badge">${LEVELS[levelOf(w)].stars}</span>
+        <span class="w-edit">✏️</span>
+      </button>
+      <button class="chip del del-word" data-word="${w.id}" aria-label="Löschen">🗑</button>
+    </div>
+    <div class="variant">
+      <div class="v-label ok">✅ Richtig</div>
+      <div class="clips">
+        ${good.map((c, i) => clipRow(c, good.length > 1 ? i + 1 : '')).join('')}
+        <button class="chip rec record" data-word="${w.id}" data-kind="correct">🎙️ Aufnehmen</button>
+      </div>
+    </div>
+    <div class="variant">
+      <div class="v-label no">❌ Falsch</div>
+      <div class="clips">
+        ${bad.map((c, i) => clipRow(c, i + 1)).join('')}
+        <button class="chip rec record" data-word="${w.id}" data-kind="wrong">🎙️ Aufnehmen</button>
+      </div>
+    </div>
+    ${warn ? `<p class="tiny warn">${warn}</p>` : ''}
+  </div>`;
+}
+
 function renderParents() {
   const list = $('#word-list');
   if (!words.length) {
-    list.innerHTML = '<div class="card empty">Noch keine Wörter. Lege oben eins an oder tippe einen Vorschlag an.</div>';
+    list.innerHTML = '';
   } else {
-    // Nach Laut gruppiert, Wörter ohne Laut zuletzt.
-    const sorted = words.slice().sort((a, b) => {
-      const sa = normSound(a.sound) || '￿';
-      const sb = normSound(b.sound) || '￿';
-      return sa === sb ? a.created - b.created : sa < sb ? -1 : 1;
-    });
-    list.innerHTML = sorted
-      .map((w) => {
-        const good = clipsOf(w.id, 'correct');
-        const bad = clipsOf(w.id, 'wrong');
-        const warn = !good.length ? 'Richtige Aussprache fehlt' : !bad.length ? 'Tipp: auch eine falsche Aussprache aufnehmen' : '';
-        return `<div class="card word" data-word="${w.id}">
-          <div class="word-head">
-            <button class="word-title edit-word" data-word="${w.id}">
-              <span class="w-emoji">${escapeHtml(w.emoji || '🔊')}</span>
-              <span class="w-text">${escapeHtml(w.text)}${w.wrongHint ? `<small> ≠ ${escapeHtml(w.wrongHint)}</small>` : ''}</span>
-              ${w.sound ? `<span class="badge">${escapeHtml(soundLabel(normSound(w.sound)))}</span>` : ''}
-              <span class="w-edit">✏️</span>
-            </button>
-            <button class="chip del del-word" data-word="${w.id}" aria-label="Wort löschen">🗑</button>
-          </div>
-          <div class="variant">
-            <div class="v-label ok">✅ Richtig</div>
-            <div class="clips">
-              ${good.map((c, i) => clipRow(c, good.length > 1 ? i + 1 : '')).join('')}
-              <button class="chip rec record" data-word="${w.id}" data-kind="correct">🎙️ Aufnehmen</button>
-            </div>
-          </div>
-          <div class="variant">
-            <div class="v-label no">❌ Falsch</div>
-            <div class="clips">
-              ${bad.map((c, i) => clipRow(c, i + 1)).join('')}
-              <button class="chip rec record" data-word="${w.id}" data-kind="wrong">🎙️ Aufnehmen</button>
-            </div>
-          </div>
-          ${warn ? `<p class="tiny warn">${warn}</p>` : ''}
-        </div>`;
-      })
-      .join('');
+    const open = openKeys(list);
+    const groups = {};
+    for (const w of words) (groups[normSound(w.sound)] ||= []).push(w);
+    list.innerHTML =
+      '<h3 class="list-title">Aufgenommen</h3>' +
+      Object.keys(groups)
+        .sort(bySoundOrder)
+        .map((sound) => {
+          const ws = groups[sound].sort((a, b) => levelOf(a) - levelOf(b) || a.created - b.created);
+          const counts = [1, 2, 3].map((l) => ws.filter((w) => levelOf(w) === l).length);
+          const summary = counts.map((n, i) => (n ? `${LEVELS[i + 1].stars} ${n}` : '')).filter(Boolean).join(' · ');
+          const key = 'w-' + sound;
+          return `<details class="word-group" data-key="${escapeHtml(key)}" ${open.has(key) ? 'open' : ''}>
+            <summary class="card"><b>${SOUNDS[sound] ? SOUNDS[sound].emoji + ' ' : ''}${escapeHtml(soundLabel(sound))}</b>
+              <span class="tiny">${summary}</span></summary>
+            ${ws.map(wordCard).join('')}
+          </details>`;
+        })
+        .join('');
   }
 
   const fbBox = $('#feedback-sounds');
@@ -443,28 +498,58 @@ function renderParents() {
   renderStats();
 }
 
+// Ein Katalog-Eintrag gilt als erledigt, sobald er richtig und falsch aufgenommen ist.
+function findWord(text) {
+  const t = text.trim().toLowerCase();
+  return words.find((w) => w.text.trim().toLowerCase() === t);
+}
+function isComplete(w) {
+  return w && clipsOf(w.id, 'correct').length && clipsOf(w.id, 'wrong').length;
+}
+function catalogItem(sound, level, [text, emoji, wrongHint]) {
+  return { text, emoji, sound, level, wrongHint };
+}
+function missingItems(sound, level) {
+  return CATALOG[sound][level].map((it) => catalogItem(sound, level, it)).filter((it) => !isComplete(findWord(it.text)));
+}
+
 function renderSuggestions() {
-  const have = new Set(words.map((w) => w.text.trim().toLowerCase()));
-  // Aufgeklappte Gruppen beim Neuzeichnen offen lassen.
   const box = $('#suggestions');
-  const open = new Set([...box.querySelectorAll('details[open]')].map((d) => d.dataset.sound));
-  const isOpen = (sound) => open.has(sound) || (!box.children.length && !words.length);
-  box.innerHTML = Object.entries(SUGGESTIONS)
-    .map(
-      ([sound, list]) => `<details class="suggest-group" data-sound="${sound}" ${isOpen(sound) ? 'open' : ''}>
-        <summary>${escapeHtml(soundLabel(sound))} <span class="tiny">(${sound === 'ü' ? 'wird zu I' : 'wird zu S'})</span></summary>
-        <div class="clips">
-          ${list
-            .map(([text, emoji, hint]) => {
-              const done = have.has(text.toLowerCase());
-              return `<button class="chip suggest ${done ? 'done' : ''}" ${done ? 'disabled' : ''}
-                data-sound="${sound}" data-text="${escapeHtml(text)}" data-emoji="${emoji}" data-hint="${escapeHtml(hint)}">
-                ${emoji} ${escapeHtml(text)} <span class="tiny">(${escapeHtml(hint)})</span>${done ? ' ✓' : ''}</button>`;
-            })
-            .join('')}
-        </div>
-      </details>`
-    )
+  const open = openKeys(box);
+  const firstRun = !box.children.length && !words.length;
+  box.innerHTML = Object.keys(CATALOG)
+    .map((sound) => {
+      const info = SOUNDS[sound];
+      const key = 's-' + sound;
+      const levels = Object.keys(CATALOG[sound]).map(Number);
+      const total = levels.reduce((n, l) => n + CATALOG[sound][l].length, 0);
+      const done = levels.reduce((n, l) => n + CATALOG[sound][l].length - missingItems(sound, l).length, 0);
+      return `<details class="suggest-group" data-key="${key}" ${open.has(key) || (firstRun && sound === 'ü') ? 'open' : ''}>
+        <summary>${info.emoji} <b>${info.label}</b> <span class="tiny">wird zu ${info.swap} · ${done}/${total} aufgenommen</span></summary>
+        ${levels
+          .map((level) => {
+            const missing = missingItems(sound, level).length;
+            const isSentence = level > 1;
+            return `<div class="variant">
+              <div class="level-head">
+                <span class="v-label">${LEVELS[level].stars} ${LEVELS[level].label}</span>
+                ${missing ? `<button class="chip rec record-all" data-sound="${sound}" data-level="${level}">🎙️ Alle aufnehmen (${missing})</button>` : '<span class="tiny">fertig ✓</span>'}
+              </div>
+              <div class="clips ${isSentence ? 'sentences' : ''}">
+                ${CATALOG[sound][level]
+                  .map(([text, emoji, hint]) => {
+                    const complete = isComplete(findWord(text));
+                    return `<button class="chip suggest ${complete ? 'done' : ''}" ${complete ? 'disabled' : ''}
+                      data-sound="${sound}" data-level="${level}" data-text="${escapeHtml(text)}">
+                      ${emoji} ${escapeHtml(text)}${isSentence ? '' : ` <span class="tiny">(${escapeHtml(hint)})</span>`}${complete ? ' ✓' : ''}</button>`;
+                  })
+                  .join('')}
+              </div>
+            </div>`;
+          })
+          .join('')}
+      </details>`;
+    })
     .join('');
 }
 
@@ -489,12 +574,17 @@ async function renderStats() {
 
   box.innerHTML =
     Object.keys(bySound)
-      .sort((a, b) => (a || '￿').localeCompare(b || '￿'))
+      .sort(bySoundOrder)
       .map((sound) => {
         const list = bySound[sound];
         const recent = list.filter((a) => a.ts >= weekAgo);
         const wrongClips = list.filter((a) => !a.isCorrect);
         const rightClips = list.filter((a) => a.isCorrect);
+        const perLevel = [1, 2, 3]
+          .map((l) => [l, list.filter((a) => (a.level || 1) === l)])
+          .filter(([, xs]) => xs.length)
+          .map(([l, xs]) => `${LEVELS[l].stars} ${pct(xs)}`)
+          .join(' · ');
         // Fehler pro Wort zählen, um schwierige Wörter zu zeigen.
         const misses = {};
         for (const a of list) if (!a.ok) misses[a.wordId] = (misses[a.wordId] || 0) + 1;
@@ -504,11 +594,12 @@ async function renderStats() {
           .sort((a, b) => b[1] - a[1])
           .slice(0, 4);
         return `<div class="stat">
-          <div class="stat-head"><b>${escapeHtml(soundLabel(sound))}</b><span class="tiny">${list.length} Antworten</span></div>
+          <div class="stat-head"><b>${SOUNDS[sound] ? SOUNDS[sound].emoji + ' ' : ''}${escapeHtml(soundLabel(sound))}</b><span class="tiny">${list.length} Antworten</span></div>
           <div class="stat-grid">
             <span>Falsche Aussprache erkannt</span><b>${pct(wrongClips)}</b>
             <span>Richtige Aussprache erkannt</span><b>${pct(rightClips)}</b>
             <span>Letzte 7 Tage gesamt</span><b>${pct(recent)}</b>
+            <span>Nach Stufe</span><b>${perLevel}</b>
           </div>
           ${hard.length ? `<p class="tiny">Schwierig: ${hard.map(([name, n]) => `${escapeHtml(name)} (${n}×)`).join(', ')}</p>` : ''}
         </div>`;
@@ -516,26 +607,36 @@ async function renderStats() {
       .join('') + '<button id="btn-reset-stats" class="btn">Fortschritt zurücksetzen</button>';
 }
 
-async function createWord({ text, emoji = '', sound = '', wrongHint = '' }) {
-  const word = { id: DB.uid(), text, emoji, sound: normSound(sound), wrongHint, created: Date.now() };
-  await DB.putWord(word);
-  words.push(word);
-  renderParents();
-  // Gleich die richtige Aussprache aufnehmen.
-  openRecorder(word.id, 'correct');
+// Ein neues Wort wird erst gespeichert, wenn die erste Aufnahme gespeichert ist –
+// so bleiben bei "Abbrechen" keine leeren Einträge zurück.
+function startItem(item) {
+  const existing = findWord(item.text);
+  const word = existing || {
+    id: DB.uid(),
+    text: item.text,
+    emoji: item.emoji || '',
+    sound: normSound(item.sound),
+    level: Number(item.level) || 1,
+    wrongHint: item.wrongHint || '',
+    created: Date.now(),
+    pending: true,
+  };
+  openRecorder(word, clipsOf(word.id, 'correct').length ? 'wrong' : 'correct');
 }
 
-async function addWord() {
+function addWord() {
   const text = $('#new-word').value.trim();
   if (!text) {
-    toast('Bitte ein Wort eingeben');
+    toast('Bitte ein Wort oder einen Satz eingeben');
     $('#new-word').focus();
     return;
   }
-  await createWord({
+  rec.queue = [];
+  startItem({
     text,
     emoji: $('#new-emoji').value.trim(),
     sound: $('#new-sound').value,
+    level: $('#new-level').value,
     wrongHint: $('#new-hint').value.trim(),
   });
   ['#new-word', '#new-emoji', '#new-hint'].forEach((s) => ($(s).value = ''));
@@ -549,6 +650,7 @@ function editWord(id) {
   $('#edit-word').value = w.text;
   $('#edit-emoji').value = w.emoji || '';
   $('#edit-sound').value = w.sound || '';
+  $('#edit-level').value = String(levelOf(w));
   $('#edit-hint').value = w.wrongHint || '';
   $('#edit-dialog').showModal();
 }
@@ -559,6 +661,7 @@ async function saveEdit() {
   w.text = $('#edit-word').value.trim() || w.text;
   w.emoji = $('#edit-emoji').value.trim();
   w.sound = normSound($('#edit-sound').value);
+  w.level = Number($('#edit-level').value) || 1;
   w.wrongHint = $('#edit-hint').value.trim();
   await DB.putWord(w);
   renderParents();
@@ -602,10 +705,11 @@ function setupLongPress(btn, ms, action) {
 }
 
 // ---------- Aufnahme ----------
-const rec = { owner: null, kind: null, recorder: null, stream: null, chunks: [], data: null, type: null, timer: null, started: 0 };
+// word = Wort-Objekt (auch noch ungespeichert) oder null bei Lob/Trost; queue = weitere Einträge für "Alle aufnehmen".
+const rec = { word: null, owner: null, kind: null, recorder: null, stream: null, chunks: [], data: null, type: null, timer: null, started: 0, queue: [], queueTotal: 0 };
 const KIND_LABEL = {
-  correct: 'richtig ausgesprochen ✅',
-  wrong: 'falsch ausgesprochen ❌',
+  correct: 'richtig ✅',
+  wrong: 'falsch ❌',
   praise: 'Lob 🎉',
   comfort: 'Trost 🤗',
 };
@@ -616,31 +720,57 @@ function pickMime() {
   return types.find((t) => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || '';
 }
 
-function openRecorder(owner, kind) {
+function openRecorder(target, kind) {
   stopClip();
-  rec.owner = owner;
+  const w = typeof target === 'string' ? words.find((x) => x.id === target) || null : target;
+  rec.word = w;
+  rec.owner = w ? w.id : 'feedback';
   rec.kind = kind;
   rec.data = null;
   rec.type = null;
-  const w = words.find((x) => x.id === owner);
-  $('#rec-title').textContent = w ? `${w.emoji || ''} ${w.text}`.trim() : 'Feedback-Spruch';
+  const sentence = w && levelOf(w) > 1;
+  const what = sentence ? 'den Satz' : 'das Wort';
+  $('#rec-title').textContent = (w ? `${w.emoji || ''} ${w.text}`.trim() : 'Feedback-Spruch') + ' – ' + KIND_LABEL[kind];
   $('#rec-sub').textContent =
     kind === 'wrong'
       ? w && w.wrongHint
-        ? `Sag absichtlich „${w.wrongHint}“ statt „${w.text}“.`
-        : 'Sag das Wort absichtlich falsch (z. B. „Sokolade“ statt „Schokolade“).'
+        ? `Sag absichtlich: „${w.wrongHint}“`
+        : `Sag ${what} absichtlich falsch (z. B. „Sokolade“ statt „Schokolade“).`
       : kind === 'correct'
-      ? 'Sag das Wort deutlich und richtig.'
+      ? `Sag ${what} deutlich und richtig.` + (w && w.wrongHint ? ' Betonung und Tempo gleich wie bei der falschen Version.' : '')
       : kind === 'praise'
       ? 'Z. B. „Super gemacht!“ oder „Toll gehört!“'
       : 'Z. B. „Nicht schlimm, hör nochmal genau hin!“';
-  $('#rec-title').textContent += ' – ' + KIND_LABEL[kind];
+  const inQueue = rec.queueTotal > 0;
+  $('#rec-queue').hidden = !inQueue;
+  $('#rec-queue').textContent = inQueue ? `Eintrag ${rec.queueTotal - rec.queue.length} von ${rec.queueTotal}` : '';
+  $('#rec-skip').hidden = !inQueue;
   $('#rec-status').textContent = window.MediaRecorder ? 'Tippen zum Aufnehmen' : 'Aufnahme wird hier nicht unterstützt – bitte Datei wählen.';
   $('#rec-btn').classList.remove('recording');
   $('#rec-btn').disabled = !window.MediaRecorder;
   $('#rec-preview').disabled = true;
   $('#rec-save').disabled = true;
-  $('#rec-dialog').showModal();
+  if (!$('#rec-dialog').open) $('#rec-dialog').showModal();
+}
+
+// Nächster Eintrag der Serie, sonst Dialog schließen.
+function nextInQueue() {
+  const next = rec.queue.shift();
+  if (next) {
+    startItem(next);
+    return;
+  }
+  rec.queueTotal = 0;
+  closeRecorder();
+  toast('Fertig ✔');
+}
+
+function recordAll(sound, level) {
+  const items = missingItems(sound, level);
+  if (!items.length) return;
+  rec.queue = items;
+  rec.queueTotal = items.length;
+  nextInQueue();
 }
 
 async function toggleRecording() {
@@ -683,7 +813,7 @@ async function toggleRecording() {
   }, 250);
 }
 
-function closeRecorder() {
+function stopRecorder() {
   if (rec.recorder && rec.recorder.state === 'recording') {
     rec.recorder.onstop = null;
     rec.recorder.stop();
@@ -692,22 +822,36 @@ function closeRecorder() {
   clearInterval(rec.timer);
   rec.recorder = null;
   stopClip();
+}
+
+function closeRecorder() {
+  stopRecorder();
+  rec.queue = [];
+  rec.queueTotal = 0;
   $('#rec-dialog').close();
+  renderParents();
 }
 
 async function saveRecording() {
   if (!rec.data) return;
-  const clip = { id: DB.uid(), owner: rec.owner, kind: rec.kind, data: rec.data, type: rec.type, created: Date.now() };
+  const { word, owner, kind } = rec;
+  if (word && word.pending) {
+    delete word.pending;
+    await DB.putWord(word);
+    words.push(word);
+  }
+  const clip = { id: DB.uid(), owner, kind, data: rec.data, type: rec.type, created: Date.now() };
   await DB.putClip(clip);
   clips.push(clip);
-  const { owner, kind } = rec;
-  closeRecorder();
-  renderParents();
-  toast('Gespeichert ✔');
-  // Nach der richtigen Aussprache direkt zur falschen weiterleiten.
-  if (kind === 'correct' && owner !== 'feedback' && !clipsOf(owner, 'wrong').length) {
-    await wait(300);
-    openRecorder(owner, 'wrong');
+  stopRecorder();
+  toast('Gespeichert ✔', 1200);
+  // Nach der richtigen Aussprache direkt die falsche, danach ggf. der nächste Eintrag.
+  if (kind === 'correct' && word && !clipsOf(word.id, 'wrong').length) {
+    openRecorder(word, 'wrong');
+  } else if (rec.queueTotal) {
+    nextInQueue();
+  } else {
+    closeRecorder();
   }
 }
 
@@ -818,8 +962,12 @@ function wire() {
     else if (t.classList.contains('record')) openRecorder(t.dataset.word, t.dataset.kind);
     else if (t.classList.contains('edit-word')) editWord(t.dataset.word);
     else if (t.classList.contains('del-word')) deleteWord(t.dataset.word);
-    else if (t.classList.contains('suggest'))
-      createWord({ text: t.dataset.text, emoji: t.dataset.emoji, sound: t.dataset.sound, wrongHint: t.dataset.hint });
+    else if (t.classList.contains('suggest')) {
+      const it = CATALOG[t.dataset.sound][t.dataset.level].find(([text]) => text === t.dataset.text);
+      rec.queue = [];
+      rec.queueTotal = 0;
+      if (it) startItem(catalogItem(t.dataset.sound, Number(t.dataset.level), it));
+    } else if (t.classList.contains('record-all')) recordAll(t.dataset.sound, Number(t.dataset.level));
     else if (t.id === 'btn-reset-stats' && confirm('Fortschritt wirklich zurücksetzen?'))
       DB.clearAnswers().then(renderStats);
   });
@@ -831,6 +979,19 @@ function wire() {
     saveSettings();
     updateHome();
   });
+  $('#level-picker').addEventListener('click', (e) => {
+    const t = e.target.closest('.level-chip');
+    if (!t) return;
+    settings.level = Number(t.dataset.level);
+    saveSettings();
+    updateHome();
+  });
+
+  document.querySelectorAll('.level-select').forEach((sel) => {
+    sel.innerHTML = Object.entries(LEVELS)
+      .map(([l, info]) => `<option value="${l}">${info.stars} ${info.label}</option>`)
+      .join('');
+  });
 
   $('#edit-form').addEventListener('submit', saveEdit);
   $('#edit-cancel').addEventListener('click', () => $('#edit-dialog').close());
@@ -839,6 +1000,10 @@ function wire() {
   $('#rec-preview').addEventListener('click', () => rec.data && playClip({ data: rec.data, type: rec.type }));
   $('#rec-save').addEventListener('click', saveRecording);
   $('#rec-cancel').addEventListener('click', closeRecorder);
+  $('#rec-skip').addEventListener('click', () => {
+    stopRecorder();
+    nextInQueue();
+  });
   $('#rec-dialog').addEventListener('cancel', (e) => {
     e.preventDefault();
     closeRecorder();
@@ -852,6 +1017,12 @@ function wire() {
   rounds.value = String(settings.rounds);
   rounds.addEventListener('change', () => {
     settings.rounds = Number(rounds.value);
+    saveSettings();
+  });
+  const voice = $('#set-voice');
+  voice.checked = settings.voice;
+  voice.addEventListener('change', () => {
+    settings.voice = voice.checked;
     saveSettings();
   });
   const showWord = $('#set-show-word');

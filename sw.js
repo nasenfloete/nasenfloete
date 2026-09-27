@@ -1,12 +1,13 @@
 // Offline-Cache für die App-Hülle. Aufnahmen liegen in IndexedDB, nicht hier.
 // Bei Änderungen an den Dateien VERSION erhöhen, damit Geräte die neue Version laden.
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE = 'hoer-genau-' + VERSION;
 const FILES = [
   './',
   'index.html',
   'style.css',
   'app.js',
+  'content.js',
   'db.js',
   'manifest.webmanifest',
   'icons/icon.svg',
