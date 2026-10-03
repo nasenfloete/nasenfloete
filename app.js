@@ -25,7 +25,7 @@ function toast(msg, ms = 2200) {
 
 // ---------- Version & Fehler ----------
 // index.html, app.js und sw.js müssen aus derselben Version stammen (tools/set-build.mjs).
-const APP_BUILD = 10;
+const APP_BUILD = 11;
 
 // Unerwartete Fehler nicht still schlucken: Eltern sehen einen Hinweis statt einer hängenden App.
 function reportError(msg) {

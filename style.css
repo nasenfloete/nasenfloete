@@ -448,8 +448,8 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
   place-items: center;
   transition: transform 0.2s, box-shadow 0.2s, filter 0.2s, background 0.2s;
 }
-.pair-card.left { background: #5b8cff; box-shadow: 0 8px 0 #3f68d1; }
-.pair-card.right { background: #ff9f3a; box-shadow: 0 8px 0 #d97a17; }
+.pair-card.left { background: #8e5cf0; box-shadow: 0 8px 0 #6a3cc9; }
+.pair-card.right { background: #12b5c9; box-shadow: 0 8px 0 #0b8a9a; }
 .pc-icon {
   width: 62%;
   aspect-ratio: 1;
