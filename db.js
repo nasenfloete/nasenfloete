@@ -41,6 +41,20 @@ const DB = (() => {
     });
   }
 
+  // Schreiben gilt erst als erledigt, wenn die Transaktion abgeschlossen ist – sonst würde z. B. ein
+  // voller Speicher (QuotaExceededError beim Commit) unbemerkt bleiben.
+  async function write(name, fn) {
+    const db = await open();
+    const tx = db.transaction(name, 'readwrite');
+    const result = fn(tx.objectStore(name));
+    await new Promise((resolve, reject) => {
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error || new Error('Speichern abgebrochen'));
+    });
+    return result;
+  }
+
   async function store(name, mode = 'readonly') {
     const db = await open();
     return db.transaction(name, mode).objectStore(name);
@@ -56,7 +70,7 @@ const DB = (() => {
       return words.sort((a, b) => a.created - b.created);
     },
     async putWord(word) {
-      return wrap((await store('words', 'readwrite')).put(word));
+      return write('words', (s) => s.put(word));
     },
     async deleteWord(id) {
       const db = await open();
@@ -74,7 +88,7 @@ const DB = (() => {
       return wrap((await store('clips')).getAll());
     },
     async putClip(clip) {
-      return wrap((await store('clips', 'readwrite')).put(clip));
+      return write('clips', (s) => s.put(clip));
     },
     async deleteClip(id) {
       return wrap((await store('clips', 'readwrite')).delete(id));

@@ -25,7 +25,7 @@ function toast(msg, ms = 2200) {
 
 // ---------- Version & Fehler ----------
 // index.html, app.js und sw.js müssen aus derselben Version stammen (tools/set-build.mjs).
-const APP_BUILD = 9;
+const APP_BUILD = 10;
 
 // Unerwartete Fehler nicht still schlucken: Eltern sehen einen Hinweis statt einer hängenden App.
 function reportError(msg) {
@@ -1106,13 +1106,20 @@ function closeRecorder() {
 async function saveRecording() {
   if (!rec.data) return;
   const { word, owner, kind } = rec;
-  if (word && word.pending) {
-    delete word.pending;
-    await DB.putWord(word);
-    words.push(word);
-  }
   const clip = { id: DB.uid(), owner, kind, data: rec.data, type: rec.type, created: Date.now() };
-  await DB.putClip(clip);
+  try {
+    if (word && word.pending) {
+      const { pending, ...stored } = word;
+      await DB.putWord(stored);
+      delete word.pending;
+      words.push(word);
+    }
+    await DB.putClip(clip);
+  } catch (err) {
+    // Aufnahme bleibt im Dialog, damit man es nochmal versuchen kann.
+    toast('Nicht gespeichert – ist der Speicher des Handys voll? (' + ((err && err.name) || 'Fehler') + ')', 6000);
+    return;
+  }
   clips.push(clip);
   stopRecorder();
   toast('Gespeichert ✔', 1200);

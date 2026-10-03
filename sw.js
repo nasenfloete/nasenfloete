@@ -1,7 +1,7 @@
 // Offline-Cache für die App-Hülle. Aufnahmen und Statistik liegen in IndexedDB und werden hier nie angefasst.
 // Bei jeder Änderung an den Dateien BUILD erhöhen – zusammen mit index.html (app-build + ?v=) und app.js (APP_BUILD).
 // Am einfachsten mit: node tools/set-build.mjs <neue Nummer>
-const BUILD = 9;
+const BUILD = 10;
 const CACHE = 'hoer-genau-v' + BUILD;
 const FILES = [
   './',
@@ -45,9 +45,9 @@ self.addEventListener('activate', (e) => {
 async function fromNetwork(request) {
   let res;
   if (request.mode === 'navigate') {
-    res = await fetch(request.url, { cache: 'no-cache', credentials: 'same-origin' });
-    // Eine umgeleitete Antwort darf nicht direkt für eine Navigation verwendet werden.
-    if (res.redirected) res = new Response(await res.blob(), { status: res.status, statusText: res.statusText, headers: res.headers });
+    // Weiterleitungen (auch auf eine andere Adresse) dem Browser überlassen, statt ihnen selbst zu folgen.
+    res = await fetch(request.url, { cache: 'no-cache', credentials: 'same-origin', redirect: 'manual' });
+    if (res.type === 'opaqueredirect') return res;
   } else {
     res = await fetch(new Request(request, { cache: 'no-cache' }));
   }
