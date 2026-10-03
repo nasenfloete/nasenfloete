@@ -25,7 +25,7 @@ function toast(msg, ms = 2200) {
 
 // ---------- Version & Fehler ----------
 // index.html, app.js und sw.js müssen aus derselben Version stammen (tools/set-build.mjs).
-const APP_BUILD = 11;
+const APP_BUILD = 12;
 
 // Unerwartete Fehler nicht still schlucken: Eltern sehen einen Hinweis statt einer hängenden App.
 function reportError(msg) {
@@ -596,10 +596,16 @@ async function answerPair(side) {
   } else {
     // Kein Wackeln, kein trauriger Ton: die gewählte Karte tritt zurück,
     // die richtige leuchtet und wird mit „Hör mal:“ noch einmal vorgespielt.
+    // Kurz rot, damit klar ist: das war nicht die richtige Karte. Erst danach (bei „Hör mal:“)
+    // tritt sie zurück, und die richtige Karte leuchtet, während sie noch einmal abgespielt wird.
+    chosen.classList.add('bad');
+    await wait(900);
+    if (token !== game.token) return;
+    chosen.classList.remove('bad');
     chosen.classList.add('dim');
-    right.classList.add('good', 'playing');
     await sayFeedback('comfort');
     if (token !== game.token) return;
+    right.classList.add('good', 'playing');
     await playClip(q.correct);
     right.classList.remove('playing');
     await wait(600);

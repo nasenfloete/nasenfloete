@@ -475,7 +475,7 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 @keyframes talk { to { transform: scale(1.12) rotate(-4deg); } }
 .pair-cards:not(.locked) .pair-card:active { transform: translateY(6px); }
 .pair-card.good { background: var(--good); box-shadow: 0 8px 0 var(--good-dark), 0 0 0 8px #b8f0cf; }
-.pair-card.bad { background: #a99bbd; box-shadow: 0 8px 0 #8a7ba0; }
+.pair-card.bad { background: #ef6b6b; box-shadow: 0 8px 0 #c94f4f; transform: scale(0.97); }
 .replay-btn {
   border: 0;
   border-radius: 999px;
