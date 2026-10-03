@@ -85,8 +85,24 @@ npx http-server -c-1 .
 ```
 
 `localhost` gilt als sicherer Ursprung, dort funktioniert auch das Mikrofon.
-Nach Änderungen an Dateien in `sw.js` die `VERSION` erhöhen, damit
-installierte Apps das Update übernehmen.
+### Neue Version veröffentlichen
+
+Vor jedem Hochladen die Build-Nummer erhöhen – sie steht an drei Stellen, die
+zusammenpassen müssen (`index.html`, `app.js`, `sw.js`):
+
+```sh
+node tools/set-build.mjs 7
+```
+
+Warum: Handys halten Dateien im Zwischenspeicher. Ohne neue Nummer kann eine
+installierte App neue und alte Dateien mischen und z. B. nicht mehr abspielen.
+Mit der Nummer bekommt jede Datei eine neue Adresse (`app.js?v=7`), der
+Service Worker fragt immer beim Server nach, und die App prüft beim Start, ob
+HTML und Skript zusammenpassen (sonst leert sie einmal ihren Zwischenspeicher
+und lädt neu). Aufnahmen und Statistik werden dabei nie gelöscht.
+
+Nach dem Hochladen öffnet sich die neue Version spätestens beim zweiten Öffnen
+der App.
 
 ## Dateien
 
@@ -99,3 +115,4 @@ installierte Apps das Update übernehmen.
 | `style.css` | Kindgerechtes Design |
 | `sw.js` | Service Worker für Offline-Betrieb |
 | `manifest.webmanifest`, `icons/` | PWA-Manifest und App-Icons |
+| `tools/set-build.mjs` | Setzt die Build-Nummer überall gleichzeitig |

@@ -16,10 +16,56 @@ const escapeHtml = (s) =>
 
 function toast(msg, ms = 2200) {
   const el = $('#toast');
+  if (!el) return;
   el.textContent = msg;
   el.hidden = false;
   clearTimeout(toast.t);
   toast.t = setTimeout(() => (el.hidden = true), ms);
+}
+
+// ---------- Version & Fehler ----------
+// index.html, app.js und sw.js müssen aus derselben Version stammen (tools/set-build.mjs).
+const APP_BUILD = 6;
+
+// Unerwartete Fehler nicht still schlucken: Eltern sehen einen Hinweis statt einer hängenden App.
+function reportError(msg) {
+  toast('Hoppla, da ist etwas schiefgegangen. Bitte die App schließen und neu öffnen. (' + msg + ')', 7000);
+}
+window.addEventListener('error', (e) => reportError(e.message || 'Fehler'));
+window.addEventListener('unhandledrejection', (e) => reportError((e.reason && e.reason.message) || String(e.reason)));
+
+// Stammen index.html und app.js aus verschiedenen Versionen (alte Datei aus einem Zwischenspeicher),
+// einmal die App-Caches leeren und neu laden. Aufnahmen (IndexedDB) und Einstellungen (localStorage)
+// bleiben dabei unberührt – gelöscht werden nur Caches mit dem Namen "hoer-genau-…".
+async function healVersionMismatch() {
+  const meta = document.querySelector('meta[name="app-build"]');
+  const htmlBuild = meta ? Number(meta.content) : 0;
+  if (htmlBuild === APP_BUILD) return false;
+  const key = htmlBuild + '/' + APP_BUILD;
+  try {
+    if (sessionStorage.getItem('hg-heal') === key) return false; // schon versucht – keine Endlosschleife
+    sessionStorage.setItem('hg-heal', key);
+  } catch {
+    return false;
+  }
+  try {
+    if (window.caches) {
+      for (const k of await caches.keys()) if (k.startsWith('hoer-genau-')) await caches.delete(k);
+    }
+    const reg = navigator.serviceWorker && (await navigator.serviceWorker.getRegistration());
+    if (reg) {
+      await reg.update().catch(() => {});
+      // Kommt gerade ein neuer Service Worker, kurz auf ihn warten (er lädt die Seite dann selbst neu).
+      if (reg.installing || reg.waiting) {
+        await new Promise((r) => {
+          navigator.serviceWorker.addEventListener('controllerchange', r, { once: true });
+          setTimeout(r, 4000);
+        });
+      }
+    }
+  } catch {}
+  location.reload();
+  return true;
 }
 
 // ---------- Laute & Stufen (Inhalte in content.js) ----------
@@ -1219,6 +1265,7 @@ function wire() {
 }
 
 async function init() {
+  if (await healVersionMismatch()) return;
   wire();
   try {
     await loadData();
@@ -1228,7 +1275,24 @@ async function init() {
   updateHome();
   // Browser bitten, die Aufnahmen nicht automatisch zu löschen.
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  registerServiceWorker();
+}
+
+// Installierte Apps werden oft nur aus dem Hintergrund geholt statt neu geladen –
+// deshalb auch dann nach einer neuen Version schauen (höchstens alle 5 Minuten).
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker
+    .register('sw.js', { updateViaCache: 'none' })
+    .then((reg) => {
+      let last = Date.now();
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState !== 'visible' || Date.now() - last < 5 * 60 * 1000) return;
+        last = Date.now();
+        reg.update().catch(() => {});
+      });
+    })
+    .catch(() => {});
 }
 
 init();
