@@ -7,7 +7,7 @@
   <meta name="description" content="Hörspiel für Kinder: Wurde das Wort richtig oder falsch ausgesprochen?">
   <meta name="theme-color" content="#ffb938">
   <!-- Muss zu APP_BUILD in app.js und BUILD in sw.js passen (tools/set-build.mjs) -->
-  <meta name="app-build" content="6">
+  <meta name="app-build" content="7">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -15,7 +15,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
-  <link rel="stylesheet" href="style.css?v=6">
+  <link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
   <!-- Startbildschirm -->
@@ -97,6 +97,22 @@
       <h2>Elternbereich</h2>
     </header>
 
+    <details class="card info">
+      <summary><h3>ℹ️ Wichtig zu wissen – bitte einmal lesen</h3></summary>
+      <p>Das Spiel übt das <b>Hören</b> – so wie der erste Schritt einer logopädischen Therapie (z.&nbsp;B. P.O.P.T.). Es ist Sprachförderung und <b>ersetzt keine Logopädie</b>.</p>
+      <ul>
+        <li><b>Sch → S</b> ist mit 3–4 Jahren noch normal (bis etwa 5). Gern spielerisch üben, aber kein Grund zur Sorge.</li>
+        <li><b>Ä → E</b>: Viele sprechen „Käse“ wie „Keese“ – das ist korrektes Hochdeutsch. Deshalb ist Ä/E standardmäßig aus. Nur einschalten, wenn ihr selbst beides unterschiedlich sprecht.</li>
+        <li><b>Ü → I und Ö → E</b>: Vokale lernen Kinder früh. Spricht in eurem Umfeld niemand so (manche Dialekte sagen „Schlissel“) und ist es mit etwa 3½ Jahren noch so, beim Kinderarzt ansprechen und nach einer Überweisung zur Logopädie fragen.</li>
+        <li><b>Hörtest</b>, wenn er oft erkältet ist oder Mittelohrentzündungen hat, schnarcht, oft „Hä?“ fragt oder den Fernseher laut mag. Flüssigkeit hinter dem Trommelfell (Paukenerguss) ist bei Kleinkindern häufig und verschlechtert das Hören.</li>
+        <li><b>Bald abklären lassen</b>, wenn viele Vokale falsch sind, dasselbe Wort mal so und mal so klingt, Fremde ihn kaum verstehen oder er wenige Wörter spricht.</li>
+        <li>Erkennt er im Spiel die falsche Form <b>sicher</b>, sagt sie aber selbst? Dann hört er gut – helfen würde eher Sprechübung mit einer Logopädin.</li>
+        <li><b>Im Alltag</b> nicht verbessern und nicht nachsprechen lassen, sondern richtig wiederholen: „Die Tir ist zu.“ – „Ja, die <i>Tür</i> ist zu.“</li>
+        <li><b>Kurz und gemeinsam</b> spielen (etwa 5 Minuten). Die Statistik ist erst ab etwa 20 Antworten pro Laut aussagekräftig.</li>
+        <li>Für 3-Jährige ist <b>„Welches ist richtig?“</b> besser geeignet als 👍/👎, weil Kinder in dem Alter bei Ja/Nein-Fragen oft einfach „ja“ sagen.</li>
+      </ul>
+    </details>
+
     <div class="card">
       <h3>Wörter &amp; Sätze aufnehmen</h3>
       <p class="tiny">Fertige Listen für die typischen Verwechslungen. Antippen startet die Aufnahme: erst richtig, dann falsch (steht jeweils dabei, was du sagen sollst). Mit <b>„Alle aufnehmen“</b> geht es der Reihe nach durch die ganze Liste.</p>
@@ -147,9 +163,11 @@
           <option value="20">20</option>
         </select>
       </label>
+      <label class="check"><input id="set-ae" type="checkbox"> Ä/E mitüben (nur wenn ihr „Käse“ und „Keese“ unterschiedlich sprecht)</label>
+      <label class="check"><input id="set-autolevels" type="checkbox"> Satz-Stufen erst freischalten, wenn die Wörter sicher sitzen (letzte 20 Versuche, 80 % richtig)</label>
       <label class="check"><input id="set-voice" type="checkbox"> Vorlesestimme (lobt und tröstet, solange keine eigenen Sprüche aufgenommen sind)</label>
       <label class="check"><input id="set-show-word" type="checkbox"> Wort als Text anzeigen (für Kinder, die schon lesen)</label>
-      <label class="check"><input id="set-chimes" type="checkbox"> Töne bei richtig/falsch</label>
+      <label class="check"><input id="set-chimes" type="checkbox"> Töne bei richtigen Antworten</label>
     </div>
 
     <div class="card">
@@ -209,8 +227,8 @@
   <div id="toast" class="toast" hidden></div>
   <div id="confetti" class="confetti" aria-hidden="true"></div>
 
-  <script src="content.js?v=6"></script>
-  <script src="db.js?v=6"></script>
-  <script src="app.js?v=6"></script>
+  <script src="content.js?v=7"></script>
+  <script src="db.js?v=7"></script>
+  <script src="app.js?v=7"></script>
 </body>
 </html>

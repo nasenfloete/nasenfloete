@@ -25,7 +25,7 @@ function toast(msg, ms = 2200) {
 
 // ---------- Version & Fehler ----------
 // index.html, app.js und sw.js müssen aus derselben Version stammen (tools/set-build.mjs).
-const APP_BUILD = 6;
+const APP_BUILD = 7;
 
 // Unerwartete Fehler nicht still schlucken: Eltern sehen einen Hinweis statt einer hängenden App.
 function reportError(msg) {
@@ -80,13 +80,18 @@ const soundOrder = (s) => {
 const bySoundOrder = (a, b) => soundOrder(a).localeCompare(soundOrder(b));
 
 // ---------- Einstellungen (nur auf diesem Gerät) ----------
-const DEFAULT_SETTINGS = { rounds: 5, showWord: false, chimes: true, voice: true, focus: '', level: 1, mode: 'judge' };
+// useAe: Ä/E mitüben (aus, weil viele „Käse“ wie „Keese“ sprechen); autoLevels: Satz-Stufen erst nach sicheren Wörtern.
+const DEFAULT_SETTINGS = { v: 2, rounds: 5, showWord: false, chimes: true, voice: true, focus: '', level: 1, mode: 'pair', useAe: false, autoLevels: true };
 const settings = (() => {
+  let s;
   try {
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem('hg-settings') || '{}') };
+    s = { ...DEFAULT_SETTINGS, v: 1, ...JSON.parse(localStorage.getItem('hg-settings') || '{}') };
   } catch {
-    return { ...DEFAULT_SETTINGS };
+    s = { ...DEFAULT_SETTINGS, v: 1 };
   }
+  // Einmalig nach dem Update: „Welches ist richtig?“ (für 3-Jährige geeigneter) und Stufe ⭐ als Start.
+  if (s.v < 2) Object.assign(s, { v: 2, mode: 'pair', level: 1 });
+  return s;
 })();
 function saveSettings() {
   try {
@@ -97,9 +102,21 @@ function saveSettings() {
 // ---------- Daten ----------
 let words = [];
 let clips = [];
+let answers = [];
 
 async function loadData() {
-  [words, clips] = await Promise.all([DB.allWords(), DB.allClips()]);
+  [words, clips, answers] = await Promise.all([DB.allWords(), DB.allClips(), DB.allAnswers().catch(() => [])]);
+}
+
+// Ausgeschaltete Laute (Ä/E) bleiben gespeichert, werden aber nicht gespielt.
+const soundActive = (sound) => !(SOUNDS[sound] && SOUNDS[sound].optional) || settings.useAe;
+const wordActive = (w) => soundActive(normSound(w.sound));
+
+// Falsche Formen, die zufällig echte Wörter sind – nur als Hinweis für ältere Aufnahmen.
+const REAL_WORD_ERRORS = { tir: 'Tier', siff: 'Siff', kerbe: 'Kerbe', mehre: 'Meere' };
+function realWordInHint(hint) {
+  for (const tok of (hint || '').toLowerCase().split(/[^a-zäöüß]+/)) if (REAL_WORD_ERRORS[tok]) return [tok, REAL_WORD_ERRORS[tok]];
+  return null;
 }
 const clipsOf = (owner, kind) => clips.filter((c) => c.owner === owner && c.kind === kind);
 const clipBlob = (clip) => new Blob([clip.data], { type: clip.type || 'audio/webm' });
@@ -205,8 +222,9 @@ function speak(text) {
   });
 }
 
-const PRAISE = ['Super!', 'Toll gehört!', 'Richtig gut!', 'Prima!', 'Klasse!'];
-const COMFORT = ['Hör nochmal genau hin.', 'Nicht schlimm. Hör mal.', 'Fast! Hör nochmal.'];
+// Lob fürs genaue Hinhören; bei Fehlern kein „falsch“, sondern einfach das richtige Vorbild.
+const PRAISE = ['Du hast genau hingehört!', 'Super zugehört!', 'Toll gehört!', 'Prima!', 'Genau!'];
+const COMFORT = ['Hör mal:', 'Hör mal genau:'];
 const randomOf = (list) => list[Math.floor(Math.random() * list.length)];
 
 // Eigene Aufnahme, sonst Vorlesestimme.
@@ -239,6 +257,7 @@ function show(name) {
 function playableQuestions(sound = '', level = 0) {
   const qs = [];
   for (const w of words) {
+    if (!wordActive(w)) continue;
     if (sound && normSound(w.sound) !== sound) continue;
     if (level && levelOf(w) !== level) continue;
     for (const c of clipsOf(w.id, 'correct')) qs.push({ word: w, clip: c, isCorrect: true });
@@ -251,11 +270,32 @@ function playableQuestions(sound = '', level = 0) {
 function playablePairs(sound = '', level = 0) {
   return words.filter(
     (w) =>
+      wordActive(w) &&
       (!sound || normSound(w.sound) === sound) &&
       (!level || levelOf(w) === level) &&
       clipsOf(w.id, 'correct').length &&
       clipsOf(w.id, 'wrong').length
   );
+}
+
+// Satz-Stufen erst freischalten, wenn die Stufe darunter sicher sitzt:
+// die letzten 20 Antworten dort (für den gewählten Laut) zu mindestens 80 % richtig.
+const UNLOCK_MIN = 20;
+const UNLOCK_RATE = 0.8;
+function levelProgress(sound, level) {
+  const xs = answers
+    .filter((a) => (a.level || 1) === level && (sound ? a.sound === sound : soundActive(a.sound)))
+    .sort((a, b) => a.ts - b.ts)
+    .slice(-UNLOCK_MIN);
+  return { n: xs.length, ok: xs.filter((a) => a.ok).length };
+}
+// availableLevels: Stufen, für die es spielbare Aufnahmen gibt (aufsteigend).
+function isUnlocked(sound, level, availableLevels) {
+  if (!settings.autoLevels) return true;
+  const below = availableLevels.filter((l) => l < level);
+  if (!below.length) return true;
+  const p = levelProgress(sound, below[below.length - 1]);
+  return p.n >= UNLOCK_MIN && p.ok / p.n >= UNLOCK_RATE;
 }
 
 const MODES = {
@@ -298,14 +338,17 @@ function updateHome() {
   // Stufen-Auswahl: nur Stufen, die es für den gewählten Laut gibt.
   const levelPool = settings.mode === 'pair' ? playablePairs(settings.focus) : playableQuestions(settings.focus).map((q) => q.word);
   const levels = [...new Set(levelPool.map(levelOf))].sort();
-  if (!levels.includes(settings.level)) settings.level = levels[0] || 1;
+  const open = levels.filter((l) => isUnlocked(settings.focus, l, levels));
+  if (!open.includes(settings.level)) settings.level = open[open.length - 1] || levels[0] || 1;
   const lp = $('#level-picker');
   lp.hidden = levels.length < 2;
   lp.innerHTML = levels
-    .map(
-      (l) => `<button class="sound-chip level-chip ${l === settings.level ? 'active' : ''}" data-level="${l}" aria-label="${LEVELS[l].label}">
-        <span class="stars">${LEVELS[l].stars}</span><span class="tiny">${LEVELS[l].label}</span></button>`
-    )
+    .map((l) => {
+      const locked = !open.includes(l);
+      const below = levels.filter((x) => x < l).pop() || 1;
+      return `<button class="sound-chip level-chip ${l === settings.level ? 'active' : ''} ${locked ? 'locked' : ''}" data-level="${l}" data-below="${below}" aria-label="${LEVELS[l].label}${locked ? ' (noch gesperrt)' : ''}">
+        <span class="stars">${locked ? '🔒' : LEVELS[l].stars}</span><span class="tiny">${LEVELS[l].label}</span></button>`;
+    })
     .join('');
 }
 
@@ -354,7 +397,9 @@ function buildPairRound(count) {
 }
 
 function recordAnswer(q, ok, extra) {
-  DB.addAnswer({ wordId: q.word.id, sound: normSound(q.word.sound), level: levelOf(q.word), ok, ts: Date.now(), ...extra }).catch(() => {});
+  const a = { wordId: q.word.id, sound: normSound(q.word.sound), level: levelOf(q.word), ok, ts: Date.now(), ...extra };
+  answers.push(a);
+  DB.addAnswer({ ...a }).catch(() => {});
 }
 
 // Gemeinsamer Abschluss einer Frage für beide Modi.
@@ -453,11 +498,9 @@ async function answer(saidCorrect) {
   recordAnswer(q, ok, { isCorrect: q.isCorrect });
 
   const fb = $('#feedback');
-  fb.className = 'feedback ' + (ok ? 'good' : 'bad');
-  $('#feedback-icon').textContent = ok ? '⭐' : '🤔';
-  $('#feedback-text').textContent = ok
-    ? q.isCorrect ? 'Ja, das war richtig!' : 'Genau, das war falsch!'
-    : q.isCorrect ? 'Das war doch richtig.' : 'Das war falsch gesprochen.';
+  fb.className = 'feedback ' + (ok ? 'good' : 'listen');
+  $('#feedback-icon').textContent = ok ? '⭐' : '👂';
+  $('#feedback-text').textContent = ok ? (q.isCorrect ? 'Ja, das war richtig!' : 'Genau, das war falsch!') : 'Hör mal:';
   fb.hidden = false;
 
   if (ok) {
@@ -466,17 +509,11 @@ async function answer(saidCorrect) {
     await sayFeedback('praise');
     await wait(500);
   } else {
-    $('#screen-game').classList.add('shake');
-    setTimeout(() => $('#screen-game').classList.remove('shake'), 500);
-    await chime(false);
+    // Kein Wackeln, kein trauriger Ton: einfach „Hör mal:“ und die richtige Aussprache als Vorbild.
     await sayFeedback('comfort');
-    // Zum Lernen: die richtige Aussprache vorspielen.
-    const correct = clipsOf(q.word.id, 'correct')[0];
-    if (correct) {
-      $('#feedback-icon').textContent = '👂';
-      $('#feedback-text').textContent = 'So klingt es richtig:';
-      await speak('So klingt es richtig:');
-      await wait(300);
+    const correct = q.isCorrect ? q.clip : clipsOf(q.word.id, 'correct')[0];
+    if (correct && token === game.token) {
+      await wait(200);
       await playClip(correct);
     }
     await wait(700);
@@ -553,15 +590,12 @@ async function answerPair(side) {
     await sayFeedback('praise');
     await wait(400);
   } else {
-    chosen.classList.add('bad', 'shake');
-    chosen.querySelector('.pc-mark').textContent = '✖';
-    await chime(false);
+    // Kein Wackeln, kein trauriger Ton: die gewählte Karte tritt zurück,
+    // die richtige leuchtet und wird mit „Hör mal:“ noch einmal vorgespielt.
+    chosen.classList.add('dim');
+    right.classList.add('good', 'playing');
     await sayFeedback('comfort');
     if (token !== game.token) return;
-    // Zum Lernen: die richtige Karte zeigen und nochmal vorspielen.
-    right.classList.add('good', 'playing');
-    right.querySelector('.pc-mark').textContent = '✔';
-    await speak('Das hier ist richtig:');
     await playClip(q.correct);
     right.classList.remove('playing');
     await wait(600);
@@ -626,6 +660,10 @@ function wordCard(w) {
   const good = clipsOf(w.id, 'correct');
   const bad = clipsOf(w.id, 'wrong');
   const warn = !good.length ? 'Richtige Aussprache fehlt' : !bad.length ? 'Falsche Aussprache fehlt' : '';
+  const real = realWordInHint(w.wrongHint);
+  const realNote = real
+    ? `<p class="tiny warn">Hinweis: „${escapeHtml(real[0])}“ ist kein Kunstwort, sondern klingt wie das echte Wort „${escapeHtml(real[1])}“. Das ist nicht schlimm, aber eindeutiger sind Kunstwörter. Du kannst den Eintrag behalten oder löschen.</p>`
+    : '';
   return `<div class="card word" data-word="${w.id}">
     <div class="word-head">
       <button class="word-title edit-word" data-word="${w.id}">
@@ -651,6 +689,7 @@ function wordCard(w) {
       </div>
     </div>
     ${warn ? `<p class="tiny warn">${warn}</p>` : ''}
+    ${realNote}
   </div>`;
 }
 
@@ -673,7 +712,7 @@ function renderParents() {
           const key = 'w-' + sound;
           return `<details class="word-group" data-key="${escapeHtml(key)}" ${open.has(key) ? 'open' : ''}>
             <summary class="card"><b>${SOUNDS[sound] ? SOUNDS[sound].emoji + ' ' : ''}${escapeHtml(soundLabel(sound))}</b>
-              <span class="tiny">${summary}</span></summary>
+              <span class="tiny">${soundActive(sound) ? summary : 'ausgeschaltet – wird nicht gespielt'}</span></summary>
             ${ws.map(wordCard).join('')}
           </details>`;
         })
@@ -722,7 +761,9 @@ function renderSuggestions() {
   const box = $('#suggestions');
   const open = openKeys(box);
   const firstRun = !box.children.length && !words.length;
+  const hidden = Object.keys(CATALOG).filter((sound) => !soundActive(sound));
   box.innerHTML = Object.keys(CATALOG)
+    .filter(soundActive)
     .map((sound) => {
       const info = SOUNDS[sound];
       const key = 's-' + sound;
@@ -731,6 +772,7 @@ function renderSuggestions() {
       const done = levels.reduce((n, l) => n + CATALOG[sound][l].length - missingItems(sound, l).length, 0);
       return `<details class="suggest-group" data-key="${key}" ${open.has(key) || (firstRun && sound === 'ü') ? 'open' : ''}>
         <summary>${info.emoji} <b>${info.label}</b> <span class="tiny">wird zu ${info.swap} · ${done}/${total} aufgenommen</span></summary>
+        ${info.note ? `<p class="tiny note">ℹ️ ${info.label}: ${info.note}</p>` : ''}
         ${levels
           .map((level) => {
             const missing = missingItems(sound, level).length;
@@ -755,15 +797,14 @@ function renderSuggestions() {
           .join('')}
       </details>`;
     })
-    .join('');
+    .join('') +
+    (hidden.length
+      ? `<p class="tiny">${hidden.map((h) => SOUNDS[h].label + '/' + SOUNDS[h].swap).join(', ')} ist ausgeschaltet (${SOUNDS[hidden[0]].note}). Einschalten unter „Einstellungen“.</p>`
+      : '');
 }
 
 async function renderStats() {
   const box = $('#stats');
-  let answers = [];
-  try {
-    answers = await DB.allAnswers();
-  } catch {}
   if (!answers.length) {
     box.innerHTML = '<p class="tiny">Noch keine Antworten. Nach dem ersten Spiel siehst du hier, wie gut die Laute schon gehört werden.</p>';
     return;
@@ -801,14 +842,31 @@ async function renderStats() {
           .filter(([name]) => name)
           .sort((a, b) => b[1] - a[1])
           .slice(0, 4);
+        // Freischaltung der Satz-Stufen für diesen Laut.
+        const avail = [...new Set(playableQuestions(sound).map((q) => levelOf(q.word)))].sort();
+        const unlock = settings.autoLevels
+          ? avail
+              .filter((l) => l > 1)
+              .map((l) => {
+                if (isUnlocked(sound, l, avail)) return `${LEVELS[l].stars} frei`;
+                const below = avail.filter((x) => x < l).pop();
+                const p = levelProgress(sound, below);
+                return `${LEVELS[l].stars} 🔒 (${LEVELS[below].stars}: ${p.n}/${UNLOCK_MIN} Versuche${p.n ? ', ' + Math.round((100 * p.ok) / p.n) + ' %' : ''})`;
+              })
+              .join(' · ')
+          : '';
+        const info = SOUNDS[sound];
         return `<div class="stat">
-          <div class="stat-head"><b>${SOUNDS[sound] ? SOUNDS[sound].emoji + ' ' : ''}${escapeHtml(soundLabel(sound))}</b><span class="tiny">${list.length} Antworten</span></div>
+          <div class="stat-head"><b>${info ? info.emoji + ' ' : ''}${escapeHtml(soundLabel(sound))}</b><span class="tiny">${list.length} Antworten${soundActive(sound) ? '' : ' · ausgeschaltet'}</span></div>
+          ${info && info.note ? `<p class="tiny note">ℹ️ ${info.note}</p>` : ''}
+          ${list.length < UNLOCK_MIN ? `<p class="tiny">Noch wenig Daten – aussagekräftig erst ab etwa ${UNLOCK_MIN} Antworten (bei 5 Fragen trifft man durch Raten oft 4 von 5).</p>` : ''}
           <div class="stat-grid">
             <span>👍👎 Falsche Aussprache erkannt</span><b>${pct(wrongClips)}</b>
             <span>👍👎 Richtige Aussprache erkannt</span><b>${pct(rightClips)}</b>
             ${pairs.length ? `<span>🗣️🗣️ Richtige von zwei gefunden</span><b>${pct(pairs)} <small>(${pairs.length})</small></b>` : ''}
             <span>Letzte 7 Tage gesamt</span><b>${pct(recent)}</b>
             <span>Nach Stufe</span><b>${perLevel}</b>
+            ${unlock ? `<span>Satz-Stufen</span><b class="unlock">${unlock}</b>` : ''}
           </div>
           ${hard.length ? `<p class="tiny">Schwierig: ${hard.map(([name, n]) => `${escapeHtml(name)} (${n}×)`).join(', ')}</p>` : ''}
         </div>`;
@@ -1188,7 +1246,10 @@ function wire() {
       if (it) startItem(catalogItem(t.dataset.sound, Number(t.dataset.level), it));
     } else if (t.classList.contains('record-all')) recordAll(t.dataset.sound, Number(t.dataset.level));
     else if (t.id === 'btn-reset-stats' && confirm('Fortschritt wirklich zurücksetzen?'))
-      DB.clearAnswers().then(renderStats);
+      DB.clearAnswers().then(() => {
+        answers = [];
+        renderStats();
+      });
   });
 
   $('#sound-picker').addEventListener('click', (e) => {
@@ -1201,6 +1262,11 @@ function wire() {
   $('#level-picker').addEventListener('click', (e) => {
     const t = e.target.closest('.level-chip');
     if (!t) return;
+    if (t.classList.contains('locked')) {
+      const p = levelProgress(settings.focus, Number(t.dataset.below));
+      toast(`Wird freigeschaltet, wenn die Stufe davor sicher sitzt (${p.n} von ${UNLOCK_MIN} Versuchen, ${p.n ? Math.round((100 * p.ok) / p.n) : 0} %).`, 3500);
+      return;
+    }
     settings.level = Number(t.dataset.level);
     saveSettings();
     updateHome();
@@ -1244,6 +1310,20 @@ function wire() {
     settings.voice = voice.checked;
     saveSettings();
   });
+  const ae = $('#set-ae');
+  ae.checked = settings.useAe;
+  ae.addEventListener('change', () => {
+    settings.useAe = ae.checked;
+    saveSettings();
+    renderParents();
+  });
+  const autoLevels = $('#set-autolevels');
+  autoLevels.checked = settings.autoLevels;
+  autoLevels.addEventListener('change', () => {
+    settings.autoLevels = autoLevels.checked;
+    saveSettings();
+    renderParents();
+  });
   const showWord = $('#set-show-word');
   showWord.checked = settings.showWord;
   showWord.addEventListener('change', () => {
@@ -1266,6 +1346,7 @@ function wire() {
 
 async function init() {
   if (await healVersionMismatch()) return;
+  saveSettings(); // einmalige Umstellung (settings.v) festhalten
   wire();
   try {
     await loadData();

@@ -3,12 +3,14 @@
 // Beim Ä nur langes Ä („Käse“), denn kurzes Ä („Äpfel“) klingt ohnehin wie E.
 // Stufe 2: kurzer Satz, nur das Zielwort ändert sich.
 // Stufe 3: längerer Satz mit zwei Wörtern mit dem Laut – nur eins davon wird falsch gesagt.
+// Die falschen Formen sind bewusst Kunstwörter: keine echten Wörter wie „Tier“ (Tür), „Meere“ (Möhre) oder „Siff“ (Schiff).
 
+// note: Hinweis für Eltern; optional: standardmäßig ausgeschaltet (siehe Einstellungen).
 const SOUNDS = {
-  ü: { label: 'Ü', swap: 'I', emoji: '🚪' },
-  ä: { label: 'Ä', swap: 'E', emoji: '🐻' },
+  ü: { label: 'Ü', swap: 'I', emoji: '🧢' },
+  ä: { label: 'Ä', swap: 'E', emoji: '🐻', optional: true, note: 'nur üben, wenn ihr „Käse“ und „Keese“ unterschiedlich sprecht' },
   ö: { label: 'Ö', swap: 'E', emoji: '🦁' },
-  sch: { label: 'Sch', swap: 'S', emoji: '🐟' },
+  sch: { label: 'Sch', swap: 'S', emoji: '🐟', note: 'bis etwa 5 Jahre noch normal – nur spielerisch üben' },
 };
 
 const LEVELS = {
@@ -20,7 +22,7 @@ const LEVELS = {
 const CATALOG = {
   ü: {
     1: [
-      ['Tür', '🚪', 'Tir'],
+      ['Würstchen', '🌭', 'Wirstchen'],
       ['Mütze', '🧢', 'Mitze'],
       ['Küche', '🍳', 'Kiche'],
       ['Brücke', '🌉', 'Bricke'],
@@ -34,7 +36,7 @@ const CATALOG = {
       ['Hühner', '🐔', 'Hiehner'],
     ],
     2: [
-      ['Mach die Tür zu.', '🚪', 'Mach die Tir zu.'],
+      ['Die Brücke ist lang.', '🌉', 'Die Bricke ist lang.'],
       ['Die Mütze ist warm.', '🧢', 'Die Mitze ist warm.'],
       ['Ich esse Gemüse.', '🥦', 'Ich esse Gemiese.'],
       ['Der Schlüssel ist weg.', '🔑', 'Der Schlissel ist weg.'],
@@ -90,19 +92,18 @@ const CATALOG = {
       ['Löwe', '🦁', 'Lewe'],
       ['Löffel', '🥄', 'Leffel'],
       ['Vögel', '🐦', 'Vegel'],
-      ['Möhre', '🥕', 'Mehre'],
+      ['Löcher', '🕳️', 'Lecher'],
       ['Brötchen', '🥖', 'Bretchen'],
       ['Frösche', '🐸', 'Fresche'],
       ['König', '👑', 'Kenig'],
       ['Schildkröte', '🐢', 'Schildkrete'],
       ['Hörnchen', '🥐', 'Hernchen'],
-      ['Körbe', '🧺', 'Kerbe'],
     ],
     2: [
       ['Der Löwe ist stark.', '🦁', 'Der Lewe ist stark.'],
       ['Ich brauche einen Löffel.', '🥄', 'Ich brauche einen Leffel.'],
       ['Die Vögel singen.', '🐦', 'Die Vegel singen.'],
-      ['Der Hase isst eine Möhre.', '🥕', 'Der Hase isst eine Mehre.'],
+      ['Das Hörnchen schmeckt gut.', '🥐', 'Das Hernchen schmeckt gut.'],
       ['Ich esse ein Brötchen.', '🥖', 'Ich esse ein Bretchen.'],
       ['Die Frösche quaken.', '🐸', 'Die Fresche quaken.'],
       ['Der König hat eine Krone.', '👑', 'Der Kenig hat eine Krone.'],
@@ -110,9 +111,9 @@ const CATALOG = {
     ],
     3: [
       ['Der Löwe schläft neben dem König.', '🦁', 'Der Lewe schläft neben dem König.'],
-      ['Ich esse die Möhre mit dem Löffel.', '🥕', 'Ich esse die Mehre mit dem Löffel.'],
+      ['Ich esse die Möhre mit dem Löffel.', '🥄', 'Ich esse die Möhre mit dem Leffel.'],
       ['Die Vögel sehen die Frösche.', '🐸', 'Die Vögel sehen die Fresche.'],
-      ['Die Schildkröte frisst eine Möhre.', '🐢', 'Die Schildkröte frisst eine Mehre.'],
+      ['Die Schildkröte frisst eine Möhre.', '🐢', 'Die Schildkrete frisst eine Möhre.'],
       ['Der König isst ein Brötchen.', '👑', 'Der Kenig isst ein Brötchen.'],
       ['In den Körben liegen Hörnchen.', '🥐', 'In den Körben liegen Hernchen.'],
     ],
@@ -125,7 +126,7 @@ const CATALOG = {
       ['Schere', '✂️', 'Sere'],
       ['Schnecke', '🐌', 'Snecke'],
       ['Schwein', '🐷', 'Swein'],
-      ['Schiff', '🚢', 'Siff'],
+      ['Schirm', '☂️', 'Sirm'],
       ['Schlange', '🐍', 'Slange'],
       ['Fisch', '🐟', 'Fiss'],
       ['Flasche', '🍾', 'Flasse'],
@@ -138,11 +139,11 @@ const CATALOG = {
       ['Das Schaf macht mäh.', '🐑', 'Das Saf macht mäh.'],
       ['Die Schnecke ist langsam.', '🐌', 'Die Snecke ist langsam.'],
       ['Das Schwein ist rosa.', '🐷', 'Das Swein ist rosa.'],
-      ['Das Schiff ist groß.', '🚢', 'Das Siff ist groß.'],
+      ['Der Schirm ist nass.', '☂️', 'Der Sirm ist nass.'],
       ['Ich gehe unter die Dusche.', '🚿', 'Ich gehe unter die Duse.'],
     ],
     3: [
-      ['Der Fisch schwimmt unter dem Schiff.', '🚢', 'Der Fisch schwimmt unter dem Siff.'],
+      ['Der Fisch schwimmt unter dem Schiff.', '🐟', 'Der Fiss schwimmt unter dem Schiff.'],
       ['Das Schaf und das Schwein spielen.', '🐷', 'Das Schaf und das Swein spielen.'],
       ['Die Schnecke kriecht auf meinen Schuh.', '🐌', 'Die Snecke kriecht auf meinen Schuh.'],
       ['Auf dem Tisch steht eine Flasche.', '🍾', 'Auf dem Tisch steht eine Flasse.'],

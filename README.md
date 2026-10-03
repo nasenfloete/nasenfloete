@@ -15,9 +15,11 @@ immer dasselbe Wort (mit Bild), nur die Aussprache unterscheidet sich:
 | Laut | wird zu | Beispiel |
 | --- | --- | --- |
 | Ü | I | Tür → „Tir“ |
-| Ä | E | Käse → „Kese“ (nur langes Ä – kurzes Ä klingt ohnehin wie E) |
+| Ä | E | Käse → „Kese“ – **standardmäßig aus**, weil viele „Käse“ korrekt wie „Keese“ sprechen |
 | Ö | E | Löwe → „Lewe“ |
-| Sch | S | Fisch → „Fiss“ |
+| Sch | S | Fisch → „Fiss“ – mit 3–4 Jahren noch normal (bis etwa 5) |
+
+Die falschen Formen sind bewusst Kunstwörter (nicht „Tier“ für „Tür“ o. ä.).
 
 Die App ist für Kinder gemacht, die **noch nicht lesen** können: Alles läuft
 über Bilder, Töne und Sprache. Text wird im Spiel standardmäßig nicht angezeigt.
@@ -29,9 +31,25 @@ Die App ist für Kinder gemacht, die **noch nicht lesen** können: Alles läuft
 - ⭐⭐⭐ **Lange Sätze** – zwei Wörter mit dem Laut, nur eins wird falsch gesagt:
   „Der Schlüssel steckt in der Tür.“ / „Der Schlissel steckt in der Tür.“
 
+Die Satz-Stufen werden automatisch freigeschaltet, wenn die Stufe darunter
+sicher sitzt (letzte 20 Antworten zu mindestens 80 % richtig). Das lässt sich
+in den Einstellungen abschalten.
+
 Für jeden Laut und jede Stufe gibt es fertige Listen (insgesamt über 100 Wörter
 und Sätze, siehe `content.js`). Eigene Wörter und Sätze kann man zusätzlich
 anlegen.
+
+## Fachlicher Hintergrund
+
+Das Spiel übt das Hören – wie der erste Schritt logopädischer Therapien
+(P.O.P.T.: richtige und falsche Formen beurteilen; Minimalpaare; SAILS).
+Es ist Sprachförderung und ersetzt keine Logopädie. Im Elternbereich gibt es
+eine Infoseite mit Warnzeichen (Hörtest, wann zur Logopädin). Daraus abgeleitet:
+
+- **„Welches ist richtig?“ ist der Standard-Modus**, weil Dreijährige bei
+  Ja/Nein-Fragen oft einfach „ja“ sagen.
+- **Ruhige Rückmeldung bei Fehlern:** kein Wackeln, kein trauriger Ton, kein
+  „falsch“ – nur „Hör mal:“ und die richtige Aussprache als Vorbild.
 
 ## So funktioniert's
 

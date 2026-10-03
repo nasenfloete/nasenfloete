@@ -1,7 +1,7 @@
 // Offline-Cache für die App-Hülle. Aufnahmen und Statistik liegen in IndexedDB und werden hier nie angefasst.
 // Bei jeder Änderung an den Dateien BUILD erhöhen – zusammen mit index.html (app-build + ?v=) und app.js (APP_BUILD).
 // Am einfachsten mit: node tools/set-build.mjs <neue Nummer>
-const BUILD = 6;
+const BUILD = 7;
 const CACHE = 'hoer-genau-v' + BUILD;
 const FILES = [
   './',

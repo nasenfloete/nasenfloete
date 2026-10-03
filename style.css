@@ -487,3 +487,22 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
   margin-bottom: 8px;
 }
 .replay-btn:disabled { opacity: 0.4; }
+
+/* ---------- Ruhige Rückmeldung bei Fehlern ---------- */
+.feedback.listen { background: rgba(91, 140, 255, 0.82); }
+.dot.no { background: #cbbfdc; border-color: #cbbfdc; }
+.pair-card.dim { filter: saturate(0.25) brightness(1.05); opacity: 0.55; }
+
+/* ---------- Gesperrte Stufen ---------- */
+.level-chip.locked { opacity: 0.55; }
+.level-chip.locked .stars { filter: grayscale(1); }
+
+/* ---------- Hinweise für Eltern ---------- */
+.note { margin: 4px 0 0; color: #6b5b8a; }
+.unlock { font-weight: 600; font-size: 0.85rem; text-align: right; }
+.info { display: block; }
+.info summary { cursor: pointer; list-style: none; }
+.info summary::-webkit-details-marker { display: none; }
+.info[open] summary { margin-bottom: 8px; }
+.info p, .info li { font-size: 0.95rem; line-height: 1.45; }
+.info ul { margin: 6px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
