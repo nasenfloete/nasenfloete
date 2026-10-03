@@ -445,7 +445,6 @@ const pairClip = (q, side) => (side === q.correctSide ? q.correct : q.wrong);
 
 function setPairEnabled(on) {
   document.querySelector('.pair-cards').classList.toggle('locked', !on);
-  $('#pair-hint').classList.toggle('show', on);
   $('#pair-replay').disabled = !on;
 }
 

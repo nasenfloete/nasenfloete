@@ -476,9 +476,6 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 .pair-cards:not(.locked) .pair-card:active { transform: translateY(6px); }
 .pair-card.good { background: var(--good); box-shadow: 0 8px 0 var(--good-dark), 0 0 0 8px #b8f0cf; }
 .pair-card.bad { background: #a99bbd; box-shadow: 0 8px 0 #8a7ba0; }
-.pair-hint { font-size: 2.6rem; opacity: 0; transition: opacity 0.3s; }
-.pair-hint.show { opacity: 1; animation: tap 1s ease-in-out infinite; }
-@keyframes tap { 50% { transform: translateY(-10px); } }
 .replay-btn {
   border: 0;
   border-radius: 999px;
