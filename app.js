@@ -25,7 +25,7 @@ function toast(msg, ms = 2200) {
 
 // ---------- Version & Fehler ----------
 // index.html, app.js und sw.js müssen aus derselben Version stammen (tools/set-build.mjs).
-const APP_BUILD = 8;
+const APP_BUILD = 9;
 
 // Unerwartete Fehler nicht still schlucken: Eltern sehen einen Hinweis statt einer hängenden App.
 function reportError(msg) {
@@ -303,16 +303,20 @@ const MODES = {
   pair: { icon: '🗣️🗣️', label: 'Welches ist richtig?' },
 };
 
+// Der Paar-Modus braucht Wörter mit richtiger und falscher Aufnahme; bis dahin wird 👍👎 gespielt.
+const currentMode = () => (settings.mode === 'pair' && !playablePairs().length ? 'judge' : settings.mode);
+
 function updateHome() {
   const all = playableQuestions();
   // Modus-Auswahl: der Paar-Modus erscheint erst, wenn es dafür Aufnahmen gibt.
   const pairsAvailable = playablePairs().length > 0;
-  if (settings.mode === 'pair' && !pairsAvailable) settings.mode = 'judge';
+  // Ohne Paare vorübergehend 👍👎 – die gewählte Einstellung selbst bleibt unverändert.
+  const mode = currentMode();
   const mp = $('#mode-picker');
   mp.hidden = !pairsAvailable;
   mp.innerHTML = Object.entries(MODES)
     .map(
-      ([m, info]) => `<button class="sound-chip mode-chip ${m === settings.mode ? 'active' : ''}" data-mode="${m}" aria-label="${info.label}">
+      ([m, info]) => `<button class="sound-chip mode-chip ${m === mode ? 'active' : ''}" data-mode="${m}" aria-label="${info.label}">
         <span class="stars">${info.icon}</span><span class="tiny">${info.label}</span></button>`
     )
     .join('');
@@ -323,7 +327,7 @@ function updateHome() {
   $('#btn-play').classList.toggle('disabled', !all.length);
 
   // Laut-Auswahl (mit Bild, weil das Kind nicht lesen kann) – nur bei mindestens zwei Lauten.
-  const pool = settings.mode === 'pair' ? playablePairs() : all.map((q) => q.word);
+  const pool = mode === 'pair' ? playablePairs() : all.map((q) => q.word);
   const sounds = [...new Set(pool.map((w) => normSound(w.sound)).filter(Boolean))].sort(bySoundOrder);
   if (settings.focus && !sounds.includes(settings.focus)) settings.focus = '';
   const sp = $('#sound-picker');
@@ -336,7 +340,7 @@ function updateHome() {
     .join('');
 
   // Stufen-Auswahl: nur Stufen, die es für den gewählten Laut gibt.
-  const levelPool = settings.mode === 'pair' ? playablePairs(settings.focus) : playableQuestions(settings.focus).map((q) => q.word);
+  const levelPool = mode === 'pair' ? playablePairs(settings.focus) : playableQuestions(settings.focus).map((q) => q.word);
   const levels = [...new Set(levelPool.map(levelOf))].sort();
   const open = levels.filter((l) => isUnlocked(settings.focus, l, levels));
   if (!open.includes(settings.level)) settings.level = open[open.length - 1] || levels[0] || 1;
@@ -415,7 +419,7 @@ function advance(token) {
 
 function startGame() {
   unlockAudio();
-  const pair = settings.mode === 'pair';
+  const pair = currentMode() === 'pair';
   const available = pair ? playablePairs(settings.focus, settings.level).length : playableQuestions(settings.focus, settings.level).length;
   if (!available) {
     toast('Erst Wörter aufnehmen (⚙️ gedrückt halten)');
