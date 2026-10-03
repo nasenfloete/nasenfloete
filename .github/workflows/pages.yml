@@ -1,8 +1,10 @@
 name: Deploy to GitHub Pages
 
+# Veröffentlicht die App bei jedem Push auf den Standard-Branch (oder main) unter
+# https://nasenfloete.github.io/nasenfloete/ – Voraussetzung: Settings → Pages → Source „GitHub Actions“.
 on:
   push:
-    branches: [main]
+    branches: [main, claude/pronunciation-quiz-pwa-xm7hjk]
   workflow_dispatch:
 
 permissions:

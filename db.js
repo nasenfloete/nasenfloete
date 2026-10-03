@@ -85,6 +85,27 @@ const DB = (() => {
     async allAnswers() {
       return wrap((await store('answers')).getAll());
     },
+    // Antworten aus einer Sicherung übernehmen – ohne Doppelte, falls dieselbe Datei zweimal importiert wird.
+    async importAnswers(list) {
+      const db = await open();
+      const existing = await wrap(db.transaction('answers').objectStore('answers').getAll());
+      const key = (a) => [a.ts, a.wordId, a.mode || '', a.ok].join('|');
+      const seen = new Set(existing.map(key));
+      const tx = db.transaction('answers', 'readwrite');
+      let added = 0;
+      for (const a of list || []) {
+        if (!a || seen.has(key(a))) continue;
+        seen.add(key(a));
+        const { id, ...rest } = a; // neue ID vergeben, damit nichts überschrieben wird
+        tx.objectStore('answers').add(rest);
+        added++;
+      }
+      await new Promise((resolve, reject) => {
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+      return added;
+    },
     async clearAnswers() {
       return wrap((await store('answers', 'readwrite')).clear());
     },

@@ -25,7 +25,7 @@ function toast(msg, ms = 2200) {
 
 // ---------- Version & Fehler ----------
 // index.html, app.js und sw.js müssen aus derselben Version stammen (tools/set-build.mjs).
-const APP_BUILD = 7;
+const APP_BUILD = 8;
 
 // Unerwartete Fehler nicht still schlucken: Eltern sehen einen Hinweis statt einer hängenden App.
 function reportError(msg) {
@@ -1148,10 +1148,11 @@ function b64ToBuf(b64) {
 function exportData() {
   const payload = {
     app: 'hoer-genau',
-    version: 1,
+    version: 2,
     exported: new Date().toISOString(),
     words,
     clips: clips.map((c) => ({ ...c, data: bufToB64(c.data) })),
+    answers: answers.map(({ id, ...a }) => a), // Statistik
   };
   const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
   const a = document.createElement('a');
@@ -1170,9 +1171,10 @@ async function importData(file) {
     if (payload.app !== 'hoer-genau') throw new Error('Unbekanntes Format');
     for (const w of payload.words || []) await DB.putWord(w);
     for (const c of payload.clips || []) await DB.putClip({ ...c, data: b64ToBuf(c.data) });
+    const added = await DB.importAnswers(payload.answers);
     await loadData();
     renderParents();
-    toast(`Importiert: ${(payload.words || []).length} Wörter`);
+    toast(`Importiert: ${(payload.words || []).length} Wörter, ${(payload.clips || []).length} Aufnahmen, ${added} Antworten`, 3500);
   } catch (err) {
     toast('Import fehlgeschlagen: ' + err.message, 3500);
   }
