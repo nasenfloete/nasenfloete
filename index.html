@@ -20,6 +20,7 @@
   <section id="screen-home" class="screen active">
     <h1 class="title">Hör genau!</h1>
     <div class="mascot" aria-hidden="true">👂</div>
+    <div id="mode-picker" class="sound-picker mode-picker" hidden></div>
     <div id="sound-picker" class="sound-picker" hidden></div>
     <div id="level-picker" class="sound-picker level-picker" hidden></div>
     <button id="btn-play" class="big-btn play">▶ Spielen</button>
@@ -33,8 +34,8 @@
   <!-- Spiel -->
   <section id="screen-game" class="screen">
     <header class="game-top">
-      <button id="btn-quit" class="icon-btn" aria-label="Beenden">✕</button>
-      <div id="progress" class="progress"></div>
+      <button id="btn-quit" class="icon-btn quit-btn" aria-label="Beenden">✕</button>
+      <div class="progress"></div>
     </header>
     <div class="stage">
       <button id="btn-replay" class="picture" aria-label="Nochmal anhören">
@@ -55,6 +56,28 @@
       <div id="feedback-icon" class="feedback-icon"></div>
       <div id="feedback-text" class="feedback-text"></div>
     </div>
+  </section>
+
+  <!-- Spiel 2: Welches ist richtig? Zwei Aufnahmen nacheinander, das Kind tippt die richtige an. -->
+  <section id="screen-pair" class="screen">
+    <header class="game-top">
+      <button class="icon-btn quit-btn" aria-label="Beenden">✕</button>
+      <div class="progress"></div>
+    </header>
+    <div class="pair-stage">
+      <div id="pair-emoji" class="pair-emoji">🔊</div>
+      <div id="pair-word" class="q-word"></div>
+      <div class="pair-cards locked">
+        <button class="pair-card left" data-side="0" aria-label="Erste Aufnahme">
+          <span class="pc-icon">🗣️</span><span class="pc-mark"></span>
+        </button>
+        <button class="pair-card right" data-side="1" aria-label="Zweite Aufnahme">
+          <span class="pc-icon">🗣️</span><span class="pc-mark"></span>
+        </button>
+      </div>
+      <div id="pair-hint" class="pair-hint" aria-hidden="true">👆</div>
+    </div>
+    <button id="pair-replay" class="replay-btn" aria-label="Nochmal anhören">🔁 nochmal hören</button>
   </section>
 
   <!-- Ergebnis -->

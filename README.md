@@ -1,7 +1,13 @@
 # Hör genau! 👂
 
-Eine kleine Web-App (PWA) für Kinder: Das Kind hört ein Wort und entscheidet,
-ob es **richtig** 👍 oder **falsch** 👎 ausgesprochen wurde.
+Eine kleine Web-App (PWA) für Kinder, die Laute unterscheiden lernen. Zwei Spielarten:
+
+- **👍👎 Richtig oder falsch?** – Das Kind hört ein Wort und entscheidet, ob es
+  richtig oder falsch ausgesprochen wurde.
+- **🗣️🗣️ Welches ist richtig?** – Zwei Karten nebeneinander, die beiden
+  Aussprachen werden nacheinander abgespielt (die gerade laufende Karte
+  leuchtet). Das Kind tippt die richtige an. Die richtige Seite ist pro Runde
+  ausgeglichen verteilt, damit „immer links“ nicht funktioniert.
 
 Gedacht zum gezielten Üben von Lauten, die ein Kind verwechselt. Es ist
 immer dasselbe Wort (mit Bild), nur die Aussprache unterscheidet sich:
@@ -36,15 +42,17 @@ anlegen.
    Liste: erst richtig, dann falsch sprechen; was man sagen soll, steht jeweils
    dabei. Einträge lassen sich überspringen. Statt aufzunehmen kann man auch
    eine Audiodatei wählen.
-3. **Spielen:** Auf dem Startbildschirm Laut (🚪 Ü, 🐻 Ä, 🦁 Ö, 🐟 Sch) und
-   Stufe (⭐ / ⭐⭐ / ⭐⭐⭐) wählen. Das Wort wird vorgespielt, danach sind
+3. **Spielen:** Auf dem Startbildschirm Spielart, Laut (🚪 Ü, 🐻 Ä, 🦁 Ö,
+   🐟 Sch) und Stufe (⭐ / ⭐⭐ / ⭐⭐⭐) wählen. „Welches ist richtig?“
+   erscheint, sobald Wörter mit richtiger *und* falscher Aufnahme da sind. Das Wort wird vorgespielt, danach sind
    👍 / 👎 freigeschaltet. Tippen auf das Bild spielt es nochmal ab.
    Bei einem Fehler wird die richtige Aussprache vorgespielt.
 4. **Lob & Trost:** Eine Vorlesestimme lobt („Super!“) und tröstet („Hör
    nochmal genau hin.“). Schöner ist es mit eigenen aufgenommenen Sprüchen –
    dann werden diese statt der Stimme verwendet.
 5. **Fortschritt:** Im Elternbereich steht pro Laut, wie oft die falsche und
-   die richtige Aussprache erkannt wurde, der Erfolg pro Stufe und welche
+   die richtige Aussprache erkannt wurde, wie oft im Paar-Spiel die richtige
+   Karte gefunden wurde, der Erfolg pro Stufe und welche
    Wörter noch schwerfallen.
 
 **Tipp:** Richtige und falsche Version möglichst gleich sprechen (Betonung,

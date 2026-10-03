@@ -34,7 +34,7 @@ const soundOrder = (s) => {
 const bySoundOrder = (a, b) => soundOrder(a).localeCompare(soundOrder(b));
 
 // ---------- Einstellungen (nur auf diesem Gerät) ----------
-const DEFAULT_SETTINGS = { rounds: 5, showWord: false, chimes: true, voice: true, focus: '', level: 1 };
+const DEFAULT_SETTINGS = { rounds: 5, showWord: false, chimes: true, voice: true, focus: '', level: 1, mode: 'judge' };
 const settings = (() => {
   try {
     return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem('hg-settings') || '{}') };
@@ -201,15 +201,44 @@ function playableQuestions(sound = '', level = 0) {
   return qs;
 }
 
+// Paar-Modus braucht pro Wort eine richtige und eine falsche Aufnahme.
+function playablePairs(sound = '', level = 0) {
+  return words.filter(
+    (w) =>
+      (!sound || normSound(w.sound) === sound) &&
+      (!level || levelOf(w) === level) &&
+      clipsOf(w.id, 'correct').length &&
+      clipsOf(w.id, 'wrong').length
+  );
+}
+
+const MODES = {
+  judge: { icon: '👍👎', label: 'Richtig oder falsch?' },
+  pair: { icon: '🗣️🗣️', label: 'Welches ist richtig?' },
+};
+
 function updateHome() {
   const all = playableQuestions();
+  // Modus-Auswahl: der Paar-Modus erscheint erst, wenn es dafür Aufnahmen gibt.
+  const pairsAvailable = playablePairs().length > 0;
+  if (settings.mode === 'pair' && !pairsAvailable) settings.mode = 'judge';
+  const mp = $('#mode-picker');
+  mp.hidden = !pairsAvailable;
+  mp.innerHTML = Object.entries(MODES)
+    .map(
+      ([m, info]) => `<button class="sound-chip mode-chip ${m === settings.mode ? 'active' : ''}" data-mode="${m}" aria-label="${info.label}">
+        <span class="stars">${info.icon}</span><span class="tiny">${info.label}</span></button>`
+    )
+    .join('');
+
   $('#home-hint').textContent = all.length
     ? ''
     : 'Noch keine Aufnahmen. Eltern: ⚙️ unten gedrückt halten und Wörter aufnehmen.';
   $('#btn-play').classList.toggle('disabled', !all.length);
 
   // Laut-Auswahl (mit Bild, weil das Kind nicht lesen kann) – nur bei mindestens zwei Lauten.
-  const sounds = [...new Set(all.map((q) => normSound(q.word.sound)).filter(Boolean))].sort(bySoundOrder);
+  const pool = settings.mode === 'pair' ? playablePairs() : all.map((q) => q.word);
+  const sounds = [...new Set(pool.map((w) => normSound(w.sound)).filter(Boolean))].sort(bySoundOrder);
   if (settings.focus && !sounds.includes(settings.focus)) settings.focus = '';
   const sp = $('#sound-picker');
   sp.hidden = sounds.length < 2;
@@ -221,7 +250,8 @@ function updateHome() {
     .join('');
 
   // Stufen-Auswahl: nur Stufen, die es für den gewählten Laut gibt.
-  const levels = [...new Set(playableQuestions(settings.focus).map((q) => levelOf(q.word)))].sort();
+  const levelPool = settings.mode === 'pair' ? playablePairs(settings.focus) : playableQuestions(settings.focus).map((q) => q.word);
+  const levels = [...new Set(levelPool.map(levelOf))].sort();
   if (!levels.includes(settings.level)) settings.level = levels[0] || 1;
   const lp = $('#level-picker');
   lp.hidden = levels.length < 2;
@@ -234,7 +264,8 @@ function updateHome() {
 }
 
 // ---------- Spiel ----------
-const game = { questions: [], index: 0, score: 0, results: [], busy: false };
+// token wird bei jedem Start/Beenden erhöht; laufende Abläufe mit altem Token brechen ab.
+const game = { mode: 'judge', questions: [], index: 0, score: 0, results: [], busy: false, token: 0 };
 
 function buildRound(count) {
   const pool = playableQuestions(settings.focus, settings.level);
@@ -247,7 +278,11 @@ function buildRound(count) {
     const useRight = right.length && (!wrong.length || Math.random() < 0.5);
     out.push(useRight ? right[r++ % right.length] : wrong[w++ % wrong.length]);
   }
-  // Nicht zweimal direkt hintereinander dasselbe Wort, wenn es sich vermeiden lässt.
+  return spreadOut(out);
+}
+
+// Nicht zweimal direkt hintereinander dasselbe Wort, wenn es sich vermeiden lässt.
+function spreadOut(out) {
   for (let i = 1; i < out.length; i++) {
     if (out[i].word.id === out[i - 1].word.id) {
       const j = out.findIndex((q, k) => k > i && q.word.id !== out[i - 1].word.id && (!out[i + 1] || q.word.id !== out[i + 1].word.id));
@@ -257,29 +292,72 @@ function buildRound(count) {
   return out;
 }
 
+// Paar-Runde: pro Frage ein Wort, eine richtige und eine falsche Aufnahme.
+// Die richtige Seite ist pro Runde ausgeglichen verteilt, damit "immer links tippen" nicht funktioniert.
+function buildPairRound(count) {
+  const pool = playablePairs(settings.focus, settings.level);
+  const out = [];
+  while (out.length < count) {
+    for (const w of shuffle(pool)) {
+      if (out.length >= count) break;
+      out.push({ word: w, correct: randomOf(clipsOf(w.id, 'correct')), wrong: randomOf(clipsOf(w.id, 'wrong')) });
+    }
+  }
+  const sides = shuffle(Array.from({ length: count }, (_, i) => i % 2));
+  return spreadOut(out).map((q, i) => ({ ...q, correctSide: sides[i] }));
+}
+
+function recordAnswer(q, ok, extra) {
+  DB.addAnswer({ wordId: q.word.id, sound: normSound(q.word.sound), level: levelOf(q.word), ok, ts: Date.now(), ...extra }).catch(() => {});
+}
+
+// Gemeinsamer Abschluss einer Frage für beide Modi.
+function advance(token) {
+  if (token !== game.token) return;
+  game.index++;
+  if (game.index >= game.questions.length) finishGame();
+  else {
+    renderProgress();
+    game.mode === 'pair' ? askPair() : askQuestion();
+  }
+}
+
 function startGame() {
   unlockAudio();
-  if (!playableQuestions(settings.focus, settings.level).length) {
+  const pair = settings.mode === 'pair';
+  const available = pair ? playablePairs(settings.focus, settings.level).length : playableQuestions(settings.focus, settings.level).length;
+  if (!available) {
     toast('Erst Wörter aufnehmen (⚙️ gedrückt halten)');
     return;
   }
-  game.questions = buildRound(settings.rounds);
+  game.token++;
+  game.mode = pair ? 'pair' : 'judge';
+  game.questions = pair ? buildPairRound(settings.rounds) : buildRound(settings.rounds);
   game.index = 0;
   game.score = 0;
   game.results = [];
-  show('game');
+  show(pair ? 'pair' : 'game');
   renderProgress();
-  askQuestion();
+  pair ? askPair() : askQuestion();
+}
+
+function quitGame() {
+  game.token++;
+  stopClip();
+  game.busy = false;
+  updateHome();
+  show('home');
 }
 
 function renderProgress() {
-  $('#progress').innerHTML = game.questions
+  const html = game.questions
     .map((_, i) => {
       const res = game.results[i];
       const cls = res === undefined ? (i === game.index ? 'current' : '') : res ? 'ok' : 'no';
       return `<span class="dot ${cls}"></span>`;
     })
     .join('');
+  document.querySelectorAll('.progress').forEach((el) => (el.innerHTML = html));
 }
 
 function setAnswersEnabled(on) {
@@ -304,11 +382,13 @@ async function askQuestion() {
 }
 
 async function listen() {
+  const token = game.token;
   const q = game.questions[game.index];
   const pic = $('#btn-replay');
   pic.classList.add('playing');
   await playClip(q.clip);
   pic.classList.remove('playing');
+  if (token !== game.token) return;
   game.busy = false;
   setAnswersEnabled(true);
 }
@@ -318,12 +398,13 @@ async function answer(saidCorrect) {
   unlockAudio();
   game.busy = true;
   setAnswersEnabled(false);
+  const token = game.token;
   const q = game.questions[game.index];
   const ok = saidCorrect === q.isCorrect;
   game.results[game.index] = ok;
   if (ok) game.score++;
   renderProgress();
-  DB.addAnswer({ wordId: q.word.id, sound: normSound(q.word.sound), level: levelOf(q.word), isCorrect: q.isCorrect, ok, ts: Date.now() }).catch(() => {});
+  recordAnswer(q, ok, { isCorrect: q.isCorrect });
 
   const fb = $('#feedback');
   fb.className = 'feedback ' + (ok ? 'good' : 'bad');
@@ -355,13 +436,92 @@ async function answer(saidCorrect) {
     await wait(700);
   }
 
-  if (!$('#screen-game').classList.contains('active')) return;
-  game.index++;
-  if (game.index >= game.questions.length) finishGame();
-  else {
-    renderProgress();
-    askQuestion();
+  advance(token);
+}
+
+// ---------- Spiel 2: Welches ist richtig? ----------
+const pairCards = () => [...document.querySelectorAll('.pair-card')];
+const pairClip = (q, side) => (side === q.correctSide ? q.correct : q.wrong);
+
+function setPairEnabled(on) {
+  document.querySelector('.pair-cards').classList.toggle('locked', !on);
+  $('#pair-hint').classList.toggle('show', on);
+  $('#pair-replay').disabled = !on;
+}
+
+async function askPair() {
+  const q = game.questions[game.index];
+  $('#pair-emoji').textContent = q.word.emoji || '🔊';
+  $('#pair-word').textContent = settings.showWord ? q.word.text : '';
+  pairCards().forEach((c) => {
+    c.className = 'pair-card ' + (c.dataset.side === '0' ? 'left' : 'right');
+    c.querySelector('.pc-mark').textContent = '';
+  });
+  const emoji = $('#pair-emoji');
+  emoji.classList.remove('pop');
+  void emoji.offsetWidth;
+  emoji.classList.add('pop');
+  setPairEnabled(false);
+  game.busy = true;
+  await wait(500);
+  await playPair();
+}
+
+// Beide Aufnahmen nacheinander; die gerade laufende Karte leuchtet.
+async function playPair() {
+  const token = game.token;
+  const q = game.questions[game.index];
+  const cards = pairCards();
+  for (const side of [0, 1]) {
+    cards[side].classList.add('playing');
+    await playClip(pairClip(q, side));
+    cards[side].classList.remove('playing');
+    if (token !== game.token) return;
+    await wait(side === 0 ? 450 : 150);
   }
+  if (token !== game.token) return;
+  game.busy = false;
+  setPairEnabled(true);
+}
+
+async function answerPair(side) {
+  if (game.busy) return;
+  unlockAudio();
+  game.busy = true;
+  setPairEnabled(false);
+  const token = game.token;
+  const q = game.questions[game.index];
+  const ok = side === q.correctSide;
+  game.results[game.index] = ok;
+  if (ok) game.score++;
+  renderProgress();
+  recordAnswer(q, ok, { mode: 'pair' });
+
+  const cards = pairCards();
+  const chosen = cards[side];
+  const right = cards[q.correctSide];
+  if (ok) {
+    chosen.classList.add('good');
+    chosen.querySelector('.pc-mark').textContent = '⭐';
+    confetti();
+    await chime(true);
+    await sayFeedback('praise');
+    await wait(400);
+  } else {
+    chosen.classList.add('bad', 'shake');
+    chosen.querySelector('.pc-mark').textContent = '✖';
+    await chime(false);
+    await sayFeedback('comfort');
+    if (token !== game.token) return;
+    // Zum Lernen: die richtige Karte zeigen und nochmal vorspielen.
+    right.classList.add('good', 'playing');
+    right.querySelector('.pc-mark').textContent = '✔';
+    await speak('Das hier ist richtig:');
+    await playClip(q.correct);
+    right.classList.remove('playing');
+    await wait(600);
+  }
+  advance(token);
 }
 
 function finishGame() {
@@ -578,8 +738,11 @@ async function renderStats() {
       .map((sound) => {
         const list = bySound[sound];
         const recent = list.filter((a) => a.ts >= weekAgo);
-        const wrongClips = list.filter((a) => !a.isCorrect);
-        const rightClips = list.filter((a) => a.isCorrect);
+        // Alte Antworten haben kein "mode" – sie stammen alle aus dem Richtig/Falsch-Modus.
+        const judge = list.filter((a) => a.mode !== 'pair');
+        const pairs = list.filter((a) => a.mode === 'pair');
+        const wrongClips = judge.filter((a) => !a.isCorrect);
+        const rightClips = judge.filter((a) => a.isCorrect);
         const perLevel = [1, 2, 3]
           .map((l) => [l, list.filter((a) => (a.level || 1) === l)])
           .filter(([, xs]) => xs.length)
@@ -596,8 +759,9 @@ async function renderStats() {
         return `<div class="stat">
           <div class="stat-head"><b>${SOUNDS[sound] ? SOUNDS[sound].emoji + ' ' : ''}${escapeHtml(soundLabel(sound))}</b><span class="tiny">${list.length} Antworten</span></div>
           <div class="stat-grid">
-            <span>Falsche Aussprache erkannt</span><b>${pct(wrongClips)}</b>
-            <span>Richtige Aussprache erkannt</span><b>${pct(rightClips)}</b>
+            <span>👍👎 Falsche Aussprache erkannt</span><b>${pct(wrongClips)}</b>
+            <span>👍👎 Richtige Aussprache erkannt</span><b>${pct(rightClips)}</b>
+            ${pairs.length ? `<span>🗣️🗣️ Richtige von zwei gefunden</span><b>${pct(pairs)} <small>(${pairs.length})</small></b>` : ''}
             <span>Letzte 7 Tage gesamt</span><b>${pct(recent)}</b>
             <span>Nach Stufe</span><b>${perLevel}</b>
           </div>
@@ -927,11 +1091,21 @@ function wire() {
     updateHome();
     show('home');
   });
-  $('#btn-quit').addEventListener('click', () => {
-    stopClip();
-    game.busy = false;
+  document.querySelectorAll('.quit-btn').forEach((b) => b.addEventListener('click', quitGame));
+  pairCards().forEach((c) => c.addEventListener('click', () => answerPair(Number(c.dataset.side))));
+  $('#pair-replay').addEventListener('click', () => {
+    if (game.busy) return;
+    unlockAudio();
+    game.busy = true;
+    setPairEnabled(false);
+    playPair();
+  });
+  $('#mode-picker').addEventListener('click', (e) => {
+    const t = e.target.closest('.mode-chip');
+    if (!t) return;
+    settings.mode = t.dataset.mode;
+    saveSettings();
     updateHome();
-    show('home');
   });
   $('#btn-replay').addEventListener('click', () => {
     if (game.busy) return;

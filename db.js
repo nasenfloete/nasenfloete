@@ -3,7 +3,8 @@
 //   sound = geübter Laut (z. B. "ü", "sch"), wrongHint = wie man es falsch sagt (z. B. "Tir")
 // clips: { id, owner, kind, data (ArrayBuffer), type, created }
 //   owner = Wort-ID oder "feedback"; kind = "correct" | "wrong" | "praise" | "comfort"
-// answers: { id (auto), wordId, sound, isCorrect, ok, ts } – Antworten des Kindes für die Statistik
+// answers: { id (auto), wordId, sound, level, ok, ts, isCorrect | mode } – Antworten des Kindes für die Statistik
+//   Richtig/Falsch-Modus: isCorrect (ohne mode, auch alle älteren Einträge); Paar-Modus: mode = "pair"
 // (ArrayBuffer statt Blob, weil ältere iOS-Versionen Blobs in IndexedDB nicht zuverlässig speichern.)
 const DB = (() => {
   const NAME = 'hoer-genau';
